@@ -93,7 +93,6 @@ Here is a full configuration demonstrating all possible configuration options. S
                             /MyBucket/myRepository
                             /MyBucket
                             s3://MyBucket/myRepository
-                        Note that for each artifactItem, you may optionally specify a repository-relative subfolder.
                     -->
                     <s3RepositoryPath>/MyBucket/myRepository</s3RepositoryPath>
                     <!--
