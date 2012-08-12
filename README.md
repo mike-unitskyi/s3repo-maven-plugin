@@ -1,0 +1,117 @@
+maven-s3repo-plugin
+===================
+
+Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.
+
+Goals
+=====
+
+__create-update__ - Creates or updates an S3 YUM repository.
+
+Usage Example
+=============
+
+Here is a common configuration:
+
+    <plugin>
+        <groupId>com.bazaarvoice.maven.plugins</groupId>
+        <artifactId>maven-s3repo-plugin</artifactId>
+        <version>1.1</version> <!-- use latest version instead -->
+        <executions>
+            <execution>
+                <phase>package</phase>
+                <goals>
+                    <goal>create-update</goal>
+                </goals>
+                <configuration>
+                    <s3RepositoryPath>/MyBucket/myRepository</s3RepositoryPath>
+                    <artifactItems>
+                        <artifactItem>
+                            <groupId>${yourGroupdId}</groupId>
+                            <artifactId>${yourArtifactId}</artifactId>
+                            <version>${yourVersion}</version>
+                            <type>rpm</type>
+                            <classifier>rpm</classifier>
+                            <targetExtension>noarch.rpm</targetExtension>
+                        </artifactItem>
+                    </artifactItems>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+
+Full Usage Example
+==================
+
+Here is a full configuration demonstrating all possible configuration options. See comments for further explanation:
+
+    <plugin>
+        <groupId>com.bazaarvoice.maven.plugins</groupId>
+        <artifactId>maven-s3repo-plugin</artifactId>
+        <version>1.1</version> <!-- use latest version instead -->
+        <executions>
+            <execution>
+                <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
+                <goals>
+                    <goal>create-update</goal>
+                </goals>
+                <configuration>
+                    <!--
+                        Optional. Allow this plugin to create the repository directory in S3 if it doesn't exist.
+                        The default is false. Note that the target *bucket* must always exist; this plugin will
+                        *never* create a bucket on your behalf.
+                    -->
+                    <allowCreate>true</allowCreate>
+                    <!--
+                        Optional. You may wish to perform a "dry run" execution without uploading any files to your repository.
+                        You will likely do this from the command-line using "-Ds3repo.doNotUpload=true".
+                    -->
+                    <doNotUpload>false</doNotUpload>
+                    <!--
+                        Optional. You may need to specify an alternate path for the "createrepo" command.
+                    -->
+                    <createrepo>/usr/bin/createrepo</createrepo>
+                    <!--
+                        The S3 path to your repository. The first path entry is the *bucket*; optional
+                        subpaths may indicate a repository that is not at the root/bucket level.
+                        Examples; any of these are valid:
+                            /MyBucket/myRepository
+                            /MyBucket
+                            s3://MyBucket/myRepository
+                        Note that for each artifactItem, you may optionally specify a repository-relative subfolder.
+                    -->
+                    <s3RepositoryPath>/MyBucket/myRepository</s3RepositoryPath>
+                    <!--
+                        You can specify your access and secret keys in the POM but this is unadvised.
+                        Use "-Ds3repo.accessKey=YOURKEY -Ds3repo.secretKey=YOURKEY" on the command-line instead.
+                    -->
+                    <s3AccessKey>${yourS3AccessKey}</s3AccessKey>
+                    <s3SecretKey>${yourS3SecretKey}</s3SecretKey>
+                    <!--
+                        You can specify multiple artifact items to copy to the repo.
+                    -->
+                    <artifactItems>
+                        <artifactItem>
+                            <groupId>${yourGroupId}</groupId>
+                            <artifactId>${yourArtifactId}</artifactId>
+                            <version>${yourVersion}</version>
+                            <type>rpm</type>
+                            <classifier>rpm</classifier>
+                            <!--
+                                Optional target extension to use for your artifact; it defaults to "noarch.rpm".
+                                The artifact name that is added to the repository will be <artifactId>-<version>-<targetExtension>.
+                            -->
+                            <targetExtension>noarch.rpm</targetExtension>
+                            <!--
+                                You may optionally specify a target folder for each artifactItem.
+                                This is useful for organizing separate projects' packages/rpms into separate folders in
+                                a single repository.
+                             -->
+                            <targetSubfolder>myProject</targetSubfolder>
+                        </artifactItem>
+                    </artifactItems>
+                </configuration>
+            </execution>
+        </executions>
+    </plugin>
+
