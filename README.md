@@ -1,7 +1,8 @@
 s3repo-maven-plugin
 ===================
 
-Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.
+Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository. Using S3 as a YUM repository is possible using
+YUM plugin yum-s3-plugin (https://github.com/jbraeuer/yum-s3-plugin).
 
 Goals
 =====
