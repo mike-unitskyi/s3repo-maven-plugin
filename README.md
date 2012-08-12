@@ -40,6 +40,13 @@ Here is a common configuration:
         </executions>
     </plugin>
 
+Special Notes
+=============
+
+If one of your declared artifact items *already* exists in your S3 YUM repository, the goal will fail UNLESS the declared
+artifact item is a *SNAPSHOT* dependency and the autoIncrementSnapshotArtifacts configuration property is true (this
+is the default value/behavior).
+
 Full Usage Example
 ==================
 
@@ -61,7 +68,14 @@ Here is a full configuration demonstrating all possible configuration options. S
                         The default is false. Note that the target *bucket* must always exist; this plugin will
                         *never* create a bucket on your behalf.
                     -->
-                    <allowCreate>true</allowCreate>
+                    <allowCreateRepository>true</allowCreateRepository>
+                    <!--
+                        Optional. Whether or not to auto-increment snaphsot artifacts. For example, if your repository
+                        contains foo-1.0-SNAPSHOT.noarch.rpm and you are attempting to deploy this artifact again, a numeric
+                        index will be added to your snapshot to avoid name collision (e.g., foo-1.0-SNAPSHOT-1.noarch.rpm).
+                        The default value is true.
+                    -->
+                    <autoIncrementSnapshotArtifacts>true</autoIncrementSnapshotArtifacts>
                     <!--
                         Optional. You may wish to perform a "dry run" execution without uploading any files to your repository.
                         You will likely do this from the command-line using "-Ds3repo.doNotUpload=true".

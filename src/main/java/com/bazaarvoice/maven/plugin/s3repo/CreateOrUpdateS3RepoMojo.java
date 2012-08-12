@@ -77,8 +77,12 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     private File stagingDirectory;
 
     /** Whether or not this goal should be allowed to create a new repository if it's needed. */
-    @Parameter(property = "s3repo.allowCreate", defaultValue = "false")
-    private boolean allowCreate;
+    @Parameter(property = "s3repo.allowCreateRepository", defaultValue = "false")
+    private boolean allowCreateRepository;
+
+    /** Auto increment snapshot dependencies. */
+    @Parameter(property = "s3repo.autoIncrementSnapshotArtifacts", defaultValue = "true")
+    private boolean autoIncrementSnapshotArtifacts;
 
     @Parameter(required = true)
     private List<ArtifactItem> artifactItems;
@@ -311,7 +315,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     }
 
     private void maybeEnsureExistingRepositoryMetadata(CreateOrUpdateContext context) throws MojoExecutionException {
-        if (!allowCreate) {
+        if (!allowCreateRepository) {
             if (!determineLocalYumMetadataFile(context).isFile()) {
                 throw new MojoExecutionException("Repository folder " + context.getS3RepositoryPath().getBucketRelativeFolder() +
                     " is not an existing repository (i.e., it doesn't a contain " + YUM_REPODATA_FOLDERNAME + " folder)," +
@@ -339,7 +343,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 int snaphshotIndex = 0;
                 File targetFile = null;
                 do {
-                    if (artifactItem.isSnapshot()) {
+                    if (artifactItem.isSnapshot() && autoIncrementSnapshotArtifacts) {
                         // snapshots are treated specially -- given an incrementing suffix that will be incremented on collisions
                         baseFileName += "-" + snaphshotIndex;
                     }
@@ -355,8 +359,8 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                     }
                     targetFile = new File(targetDirectory, targetFileName);
                     if (targetFile.exists()) {
-                        if (!artifactItem.isSnapshot()) {
-                            // disallow file collisions for non-snapshots!
+                        if (!artifactItem.isSnapshot() || !autoIncrementSnapshotArtifacts) {
+                            // fail on file collisions!
                             throw new MojoExecutionException("Dependency " + artifactItem.getResolvedArtifact().getArtifact() + " already exists in repository!");
                         }
                         // file is a snapshot; increment snapshotIndex retry targetFile
