@@ -153,11 +153,11 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         final String targetBucket = context.getS3RepositoryPath().getBucketName();
         AmazonS3 s3Session = context.getS3Session();
         for (File toUpload : IOUtils.listAllFiles(stagingDirectory)) {
-            String relativedPath = IOUtils.relativize(stagingDirectory, toUpload);
-            // pathological -- replace *other* file separators with S3-style file separators and strip last separator
-            relativedPath = relativedPath.replaceAll("\\\\", "/").replaceAll("/$", "");
-            String key = relativedPath;
-            getLog().info("Uploading " + toUpload.getName() + "to s3://" + targetBucket + "/" + key + "...");
+            String relativizedPath = IOUtils.relativize(stagingDirectory, toUpload);
+            // pathological -- replace *other* file separators with S3-style file separators and strip first & last separator
+            relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
+            String key = relativizedPath;
+            getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + key + "...");
             PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, key, toUpload);
             s3Session.putObject(putObjectRequest);
         }
