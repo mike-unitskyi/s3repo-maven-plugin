@@ -131,7 +131,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         ensureS3BucketExists(context);
         // download existing repository metadata
         pullExistingRepositoryMetadata(context);
-        // require existing repository metadata if allowCreate = false
+        // require existing repository metadata if allowCreateRepository = false
         maybeEnsureExistingRepositoryMetadata(context);
         // synthesize/touch zero-size files to represent existing repository-managed files
         synthesizeExistingRepositoryFiles(context);
@@ -319,7 +319,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
             if (!determineLocalYumMetadataFile(context).isFile()) {
                 throw new MojoExecutionException("Repository folder " + context.getS3RepositoryPath().getBucketRelativeFolder() +
                     " is not an existing repository (i.e., it doesn't a contain " + YUM_REPODATA_FOLDERNAME + " folder)," +
-                        " use allowCreate = true to create");
+                        " use allowCreateRepository = true to create");
             }
         }
     }
