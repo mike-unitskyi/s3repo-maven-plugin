@@ -1,4 +1,4 @@
-maven-s3repo-plugin
+s3repo-maven-plugin
 ===================
 
 Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.
@@ -15,7 +15,7 @@ Here is a common configuration:
 
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
-        <artifactId>maven-s3repo-plugin</artifactId>
+        <artifactId>s3repo-maven-plugin</artifactId>
         <version>1.1</version> <!-- use latest version instead -->
         <executions>
             <execution>
@@ -54,7 +54,7 @@ Here is a full configuration demonstrating all possible configuration options. S
 
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
-        <artifactId>maven-s3repo-plugin</artifactId>
+        <artifactId>s3repo-maven-plugin</artifactId>
         <version>1.1</version> <!-- use latest version instead -->
         <executions>
             <execution>
