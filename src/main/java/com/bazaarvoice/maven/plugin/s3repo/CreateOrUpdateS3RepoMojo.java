@@ -351,7 +351,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                     // create filename from dependency's file name but using pom-configured target subfolder and target extension
                     String targetFileName = baseFileNameToUse + "." + artifactItem.getTargetExtension();
                     String bucketRelativeFolderPath =
-                        joinExcludeEmpties(',', artifactItem.getTargetSubfolder(), s3RepositoryPath.getBucketRelativeFolder());
+                        joinExcludeEmpties('/', s3RepositoryPath.getBucketRelativeFolder(), artifactItem.getTargetSubfolder());
                     final File targetDirectory;
                     if (StringUtils.isEmpty(bucketRelativeFolderPath)) {
                         targetDirectory = stagingDirectory;
