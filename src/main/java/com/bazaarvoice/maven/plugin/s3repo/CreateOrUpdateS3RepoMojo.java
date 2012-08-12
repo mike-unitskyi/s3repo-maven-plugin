@@ -141,7 +141,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         createRepo(context);
         // pathologically delete files that we do not wish to push to target repository
         cleanupSynthesizedFiles(context);
-        // push/upload staging directory to repository
+        // push/upload staging directory to repository if doNotUpload = false
         maybeUploadRepositoryUpdate(context);
     }
 
