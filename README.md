@@ -17,7 +17,7 @@ Here is a common configuration:
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.1</version> <!-- use latest version instead -->
+        <version>1.0</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>package</phase>
@@ -56,7 +56,7 @@ Here is a full configuration demonstrating all possible configuration options. S
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.1</version> <!-- use latest version instead -->
+        <version>1.0</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
