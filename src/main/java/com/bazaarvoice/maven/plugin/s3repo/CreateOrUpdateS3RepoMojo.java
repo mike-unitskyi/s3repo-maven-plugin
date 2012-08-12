@@ -124,7 +124,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         context.setS3Session(createS3Client());
         context.setS3RepositoryPath(parseS3RepositoryPath());
 
-        // always delete the staging directory before resolving dependencies -- it never makes sense to start with existing staging directory
+        // always clean the staging directory -- it never makes sense to start with existing staging directory
         createOrCleanStagingDirectory();
 
         // require S3 bucket to exist before continuing
@@ -202,7 +202,6 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
             }
             // for each bucket relative path in the listObjects result, remove from our set
             for (S3ObjectSummary summary : result) {
-                // note: the filesNotInRepo is are paths *relative* to repo
                 bucketRelativePaths.remove(summary.getKey());
             }
             // now, expect set to be empty
