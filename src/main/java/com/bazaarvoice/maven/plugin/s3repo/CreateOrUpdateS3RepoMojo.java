@@ -341,14 +341,15 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 // use <artifactID>-<version> as extensionless filename
                 String baseFileName = artifactItem.getArtifactId() + "-" + artifactItem.getVersion();
                 int snaphshotIndex = 0;
-                File targetFile = null;
+                File targetFile;
                 do {
+                    String baseFileNameToUse = baseFileName;
                     if (artifactItem.isSnapshot() && autoIncrementSnapshotArtifacts) {
                         // snapshots are treated specially -- given an incrementing suffix that will be incremented on collisions
-                        baseFileName += "-" + snaphshotIndex;
+                        baseFileNameToUse = baseFileName + "-" + snaphshotIndex;
                     }
                     // create filename from dependency's file name but using pom-configured target subfolder and target extension
-                    String targetFileName = baseFileName + "." + artifactItem.getTargetExtension();
+                    String targetFileName = baseFileNameToUse + "." + artifactItem.getTargetExtension();
                     String bucketRelativeFolderPath =
                         joinExcludeEmpties(',', artifactItem.getTargetSubfolder(), s3RepositoryPath.getBucketRelativeFolder());
                     final File targetDirectory;
