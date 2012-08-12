@@ -344,7 +344,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 File targetFile;
                 do {
                     String baseFileNameToUse = baseFileName;
-                    if (artifactItem.isSnapshot() && autoIncrementSnapshotArtifacts) {
+                    if (artifactItem.isSnapshot() && autoIncrementSnapshotArtifacts && snaphshotIndex > 0 /*never suffix with 0*/) {
                         // snapshots are treated specially -- given an incrementing suffix that will be incremented on collisions
                         baseFileNameToUse = baseFileName + "-" + snaphshotIndex;
                     }
