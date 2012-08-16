@@ -62,7 +62,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
     private boolean doNotUpload;
 
-    /** Indicates whether we should; especially helpful for debugging this plugin during development. */
+    /** Indicates whether we should clean the staging directory before pulling the repository; this is helpful because
+      existing files in staging are not re-downloaded; this is especially helpful for debugging this plugin during
+      development. */
     @Parameter(property = "s3repo.doNotPreClean", defaultValue = "false")
     private boolean doNotPreClean;
 
