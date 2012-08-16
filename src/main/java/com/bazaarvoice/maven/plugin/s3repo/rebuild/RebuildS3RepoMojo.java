@@ -224,6 +224,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         if (snapshotIndex > 0) { // heuristic: we have a SNAPSHOT artifact here
             final String prefixWithoutPath = fileName.substring(0, snapshotIndex);
             final String bucketKeyPrefix = path + prefixWithoutPath;
+            getLog().debug("Making note of snapshot '" + summary.getKey() + "'; using prefix = " + bucketKeyPrefix);
             // ASSERT: bucketKeyPrefix is *full path* of bucket key up to and excluding the SNAPSHOT string and anything after it.
             context.addSnapshotDescription(new SnapshotDescription(bucketKeyPrefix, summary.getKey(), summary.getLastModified()));
         }
