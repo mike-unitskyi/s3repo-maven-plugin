@@ -412,7 +412,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
 
     private void ensureS3BucketExists(CreateOrUpdateContext context) throws MojoExecutionException {
         if (!context.getS3Session().doesBucketExist(context.getS3RepositoryPath().getBucketName())) {
-            throw new MojoExecutionException("bucket doesn't exist in S3: " + context.getS3RepositoryPath().getBucketName());
+            throw new MojoExecutionException("Bucket doesn't exist in S3: " + context.getS3RepositoryPath().getBucketName());
         }
     }
 
@@ -428,6 +428,8 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 .withBucketName(s3RepositoryPath.getBucketName())
                 .withPrefix(bucketRelativeMetadataFolderPath/*, which has "/" suffix*/);
         List<S3ObjectSummary> result = internalListObjects(context.getS3Session(), listObjectsRequest);
+        getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
+            + "' with prefix '" + bucketRelativeMetadataFolderPath + "'...");
         for (S3ObjectSummary summary : result) {
             getLog().info("Downloading " + summary.getKey() + " from S3...");
             final S3Object object = context.getS3Session()
