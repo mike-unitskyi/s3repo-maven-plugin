@@ -45,6 +45,7 @@ public final class LocalYumRepoFacade {
 
     public void deleteFile(String relativePath) throws MojoExecutionException {
         if (!hasFile(relativePath)) {
+            log.warn("This file doesn't exist: " + new File(repositoryRoot, relativePath));
             throw new MojoExecutionException("Can't delete non-existent local repository file: " + relativePath);
         }
         if (!new File(repositoryRoot, relativePath).delete()) {
