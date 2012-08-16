@@ -1,14 +1,17 @@
 s3repo-maven-plugin
 ===================
 
-Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository. Using S3 as a YUM repository is possible using
-YUM plugin yum-s3-plugin (https://github.com/jbraeuer/yum-s3-plugin).
+Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.  Also has a goal to support rebuilding S3 YUM
+repositories.
+
+Note that using S3 as a YUM repository is possible via the YUM plugin yum-s3-plugin
+(https://github.com/jbraeuer/yum-s3-plugin).
 
 Goals
 =====
 
-__create-update__ - Creates or updates an S3 YUM repository.
-__rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
+    __create-update__ - Creates or updates an S3 YUM repository.
+    __rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
 
 create-update: Usage Example
 ============================
