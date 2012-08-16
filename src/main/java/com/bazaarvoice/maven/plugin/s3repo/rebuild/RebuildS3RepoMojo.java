@@ -151,13 +151,23 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         SnapshotDescription toDelete = snapshotsRepresentingSameInstallable.get(i);
                         getLog().info("Deleting old snapshot '" + toDelete.getBucketKey() + "', locally...");
                         // delete object locally so createrepo step doesn't pick it up
-                        context.getLocalYumRepo().deleteFile(toDelete.getBucketKey());
+                        deleteBucketRelativePath(toDelete.getBucketKey());
                         // we'll also delete the object from s3 but only after we upload the repository metadata
                         // (so we don't confuse any repo clients who are reading the current repo metadata)
                         context.addBucketKeyOfSnapshotToDelete(toDelete.getBucketKey());
                     }
                 }
             }
+        }
+    }
+
+    private void deleteBucketRelativePath(String bucketRelativePath) throws MojoExecutionException {
+        File toDelete = new File(stagingDirectory, bucketRelativePath);
+        if (!toDelete.isFile()) {
+            throw new MojoExecutionException("Cannot delete non-existent file: " + toDelete);
+        }
+        if (!toDelete.delete()) {
+            throw new MojoExecutionException("Failed to delete file: " + toDelete);
         }
     }
 
@@ -172,9 +182,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
         // list of files (repo-relative paths)
         List<String> fileList = localYumRepo.parseFileListFromRepoMetadata();
-        for (String file : fileList) {
-            if (!localYumRepo.hasFile(file)) {
-                throw new MojoExecutionException("Repository metadata declared file " + file + " but the file does not exist.");
+        for (String repoRelativePath : fileList) {
+            if (!localYumRepo.hasFile(repoRelativePath)) {
+                throw new MojoExecutionException("Repository metadata declared file " + repoRelativePath + " but the file does not exist.");
             }
         }
     }

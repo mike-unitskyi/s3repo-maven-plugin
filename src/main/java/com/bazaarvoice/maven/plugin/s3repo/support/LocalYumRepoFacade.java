@@ -39,18 +39,8 @@ public final class LocalYumRepoFacade {
         return determineRepoMetadataFile().isFile();
     }
 
-    public boolean hasFile(String relativePath) {
-        return new File(repositoryRoot, relativePath).isFile();
-    }
-
-    public void deleteFile(String relativePath) throws MojoExecutionException {
-        if (!hasFile(relativePath)) {
-            log.warn("This file doesn't exist: " + new File(repositoryRoot, relativePath));
-            throw new MojoExecutionException("Can't delete non-existent local repository file: " + relativePath);
-        }
-        if (!new File(repositoryRoot, relativePath).delete()) {
-            throw new MojoExecutionException("Failed to delete local repository file: " + relativePath);
-        }
+    public boolean hasFile(String repoRelativePath) {
+        return new File(repositoryRoot, repoRelativePath).isFile();
     }
 
     /** Parse primary metadata file to get list of repo file paths (these paths will be *repo-relative*). */
