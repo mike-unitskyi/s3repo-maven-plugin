@@ -10,8 +10,8 @@ Note that using S3 as a YUM repository is possible via the YUM plugin yum-s3-plu
 Goals
 =====
 
-    __create-update__ - Creates or updates an S3 YUM repository.
-    __rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
+* __create-update__ - Creates or updates an S3 YUM repository.
+* __rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
 
 create-update: Usage Example
 ============================
