@@ -21,6 +21,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Encapsulates queries and operations over a local copy of a YUM repo. */
 public final class LocalYumRepoFacade {
 
     private final File repositoryRoot;
