@@ -1,4 +1,4 @@
-package com.bazaarvoice.maven.plugin.s3repo;
+package com.bazaarvoice.maven.plugin.s3repo.create;
 
 import org.apache.maven.plugins.annotations.Parameter;
 import org.sonatype.aether.resolution.ArtifactResult;

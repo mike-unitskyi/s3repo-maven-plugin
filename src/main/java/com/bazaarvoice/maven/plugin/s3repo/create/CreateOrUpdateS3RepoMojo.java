@@ -1,18 +1,19 @@
-package com.bazaarvoice.maven.plugin.s3repo;
+package com.bazaarvoice.maven.plugin.s3repo.create;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
-import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.bazaarvoice.maven.plugin.s3repo.util.IOUtils;
-import com.bazaarvoice.maven.plugin.s3repo.util.LogStreamConsumer;
-import com.bazaarvoice.maven.plugin.s3repo.util.NullStreamConsumer;
-import com.bazaarvoice.maven.plugin.s3repo.util.SimpleNamespaceResolver;
+import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
+import com.bazaarvoice.maven.plugin.s3repo.WellKnowns;
+import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
+import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
+import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
+import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -22,9 +23,6 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.FileUtils;
-import org.codehaus.plexus.util.cli.CommandLineException;
-import org.codehaus.plexus.util.cli.CommandLineUtils;
-import org.codehaus.plexus.util.cli.Commandline;
 import org.codehaus.plexus.util.io.InputStreamFacade;
 import org.sonatype.aether.RepositorySystem;
 import org.sonatype.aether.RepositorySystemSession;
@@ -32,34 +30,19 @@ import org.sonatype.aether.resolution.ArtifactRequest;
 import org.sonatype.aether.resolution.ArtifactResolutionException;
 import org.sonatype.aether.util.StringUtils;
 import org.sonatype.aether.util.artifact.DefaultArtifact;
-import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathConstants;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.GZIPInputStream;
 
 /**
  * Creates or updates a YUM repository in S3.
  */
 @Mojo(name = "create-update", defaultPhase = LifecyclePhase.DEPLOY)
 public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
-
-    /** Well-known names. */
-    private static final String YUM_REPODATA_FOLDERNAME = "repodata";
-    private static final String YUM_REPOMETADATA_FILENAME = "repomd.xml";
 
     @Component
     private MavenProject project;
@@ -70,9 +53,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     @Parameter(property = "session.repositorySession", required = true, readonly = true)
     private RepositorySystemSession session;
 
-    /**
-     * Staging directory. This is where we will generate bucket relative-files.
-     */
+    /** Staging directory. This is where we will generate *bucket-relative* files. */
     @Parameter(property = "s3repo.stagingDirectory", defaultValue = "${project.build.directory}/s3repo")
     private File stagingDirectory;
 
@@ -104,15 +85,11 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.secretKey", required = true)
     private String s3SecretKey;
 
-    /**
-     * Execute all steps up to and excluding the upload to the S3. This can be set to true to perform a "dryRun" execution.
-     */
+    /** Execute all steps up to and excluding the upload to the S3. This can be set to true to perform a "dryRun" execution. */
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
     private boolean doNotUpload;
 
-    /**
-     * The createrepo executable.
-     */
+    /** The createrepo executable. */
     @Parameter(property = "s3repo.createrepo", defaultValue = "createrepo")
     private String createrepo;
 
@@ -123,9 +100,10 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         // parse s3 repository path and set bucketAndFolder field
         context.setS3Session(createS3Client());
         context.setS3RepositoryPath(parseS3RepositoryPath());
+        context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
 
         // always clean the staging directory -- it never makes sense to start with existing staging directory
-        createOrCleanStagingDirectory();
+        ExtraFileUtils.createOrCleanDirectory(stagingDirectory);
 
         // require S3 bucket to exist before continuing
         ensureS3BucketExists(context);
@@ -145,6 +123,14 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         maybeUploadRepositoryUpdate(context);
     }
 
+    /** Create a {@link LocalYumRepoFacade} which will allow us to query and operate on a local (on-disk) yum repository. */
+    private LocalYumRepoFacade determineLocalYumRepo(S3RepositoryPath s3RepositoryPath) {
+        return new LocalYumRepoFacade(
+                s3RepositoryPath.hasBucketRelativeFolder()
+                    ? new File(stagingDirectory, s3RepositoryPath.getBucketRelativeFolder())
+                    : stagingDirectory, createrepo, getLog());
+    }
+
     private void maybeUploadRepositoryUpdate(CreateOrUpdateContext context) throws MojoExecutionException {
         if (doNotUpload) {
             getLog().info("Per configuration, not uploading to S3.");
@@ -152,8 +138,8 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         }
         final String targetBucket = context.getS3RepositoryPath().getBucketName();
         AmazonS3 s3Session = context.getS3Session();
-        for (File toUpload : IOUtils.listAllFiles(stagingDirectory)) {
-            String relativizedPath = IOUtils.relativize(stagingDirectory, toUpload);
+        for (File toUpload : ExtraIOUtils.listAllFiles(stagingDirectory)) {
+            String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
             // replace *other* file separators with S3-style file separators and strip first & last separator
             relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
             String key = relativizedPath;
@@ -177,18 +163,16 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         //      2) extract a file list from the primary metadata file
         //      3) ensure that all files in the primary file list exist in the s3 repo
         //      4) "touch"/synthesize a zero-sized file for each file in the primary list
-        File repoMetadataFile = determineLocalYumMetadataFile(context); // the repomd.xml file
-        if (repoMetadataFile.isFile()) { // if it exists...
+        if (context.getLocalYumRepo().isRepoDataExists()) { // if repo exists...
             // determine primary metadata file from metadata xml and parse it to determine repository files *declared* by the metadata
-            List<String> repoRelativeFilePathList = extractFileListFromPrimaryMetadataFile(
-                    parseXmlFile(resolvePrimaryMetadataFile(context, parseXmlFile(repoMetadataFile))));
+            List<String> repoRelativeFilePathList = context.getLocalYumRepo().parseFileListFromRepoMetadata();
             S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
             ListObjectsRequest request = new ListObjectsRequest()
                     .withBucketName(context.getS3RepositoryPath().getBucketName());
             if (s3RepositoryPath.hasBucketRelativeFolder()) {
                 request.withPrefix(s3RepositoryPath.getBucketRelativeFolder() + "/");
             }
-            List<S3ObjectSummary> result = internalListObjects(context.getS3Session(), request);
+            List<S3ObjectSummary> result = S3Utils.listAllObjects(context.getS3Session(), request);
             // we will start with a set of metadata-declared files and remove any file we find that exists in the repo;
             // we expect the Set to be empty when finished iteration. note that s3 api returns bucket-relative
             // paths, so we prefix each of our repoRelativeFilePaths with the repository path.
@@ -218,80 +202,9 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 if (file.exists()) {
                     throw new MojoExecutionException("Repo already has this file: " + file.getPath());
                 }
-                IOUtils.touch(file);
+                ExtraIOUtils.touch(file);
                 context.addSynthesizedFile(file);
             }
-        }
-    }
-
-    private List<String> extractFileListFromPrimaryMetadataFile(Document primaryMetadataFile) throws MojoExecutionException {
-        // we will return a list of *repo-relative* file paths
-        List<String> retval = new ArrayList<String>();
-        String rootNamespaceUri = determineRootNamespaceUri(primaryMetadataFile);
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        xpath.setNamespaceContext(SimpleNamespaceResolver.forPrefixAndNamespace("common", rootNamespaceUri));
-        NodeList repoRelativeFilePaths =
-            (NodeList) evaluateXPathNodeSet(xpath, "//common:metadata/common:package/common:location/@href", primaryMetadataFile);
-        for (int i = 0; i < repoRelativeFilePaths.getLength(); ++i) {
-            retval.add(repoRelativeFilePaths.item(i).getNodeValue());
-        }
-        return retval;
-    }
-
-    private File resolvePrimaryMetadataFile(CreateOrUpdateContext context, Document metadata) throws MojoExecutionException {
-        S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-        // determine root namespace for use in xpath queries
-        String rootNamespaceUri = determineRootNamespaceUri(metadata);
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        xpath.setNamespaceContext(SimpleNamespaceResolver.forPrefixAndNamespace("repo", rootNamespaceUri));
-        // primary metadata file, relative to *repository* root
-        String repoRelativePrimaryMetadataFilePath =
-            evaluateXPathString(xpath, "//repo:repomd/repo:data[@type='primary']/repo:location/@href", metadata);
-        final String bucketRelativePrimaryMetadataFilePath;
-        if (s3RepositoryPath.hasBucketRelativeFolder()) {
-            bucketRelativePrimaryMetadataFilePath = s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePrimaryMetadataFilePath;
-        } else {
-            bucketRelativePrimaryMetadataFilePath = repoRelativePrimaryMetadataFilePath;
-        }
-        File primaryMetadataFile = new File(stagingDirectory, bucketRelativePrimaryMetadataFilePath);
-        if (!primaryMetadataFile.isFile() || !primaryMetadataFile.getName().endsWith(".gz")) {
-            throw new MojoExecutionException("Primary metadata file, '" + primaryMetadataFile.getPath() +
-                "', does not exist or does not have .gz extension");
-        }
-        return primaryMetadataFile;
-    }
-
-    private String determineRootNamespaceUri(Document metadata) {
-        return metadata.getChildNodes().item(0).getNamespaceURI();
-    }
-
-    private Object evaluateXPathNodeSet(XPath xpath, String expression, Document document) throws MojoExecutionException {
-        try {
-            return xpath.evaluate(expression, document, XPathConstants.NODESET);
-        } catch (XPathExpressionException e) {
-            throw new MojoExecutionException(expression, e);
-        }
-    }
-
-    private String evaluateXPathString(XPath xpath, String expression, Document document) throws MojoExecutionException {
-        try {
-            return xpath.evaluate(expression, document);
-        } catch (XPathExpressionException e) {
-            throw new MojoExecutionException(expression, e);
-        }
-    }
-
-    private Document parseXmlFile(File file) throws MojoExecutionException {
-        InputStream in = toInputStream(file);
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            return builder.parse(in);
-        } catch (Exception e) {
-            throw new MojoExecutionException("failed to parse", e);
-        } finally {
-            IOUtils.closeQuietly(in);
         }
     }
 
@@ -315,9 +228,9 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
 
     private void maybeEnsureExistingRepositoryMetadata(CreateOrUpdateContext context) throws MojoExecutionException {
         if (!allowCreateRepository) {
-            if (!determineLocalYumMetadataFile(context).isFile()) {
+            if (!context.getLocalYumRepo().isRepoDataExists()) {
                 throw new MojoExecutionException("Repository folder " + context.getS3RepositoryPath().getBucketRelativeFolder() +
-                    " is not an existing repository (i.e., it doesn't a contain " + YUM_REPODATA_FOLDERNAME + " folder)," +
+                    " is not an existing repository (i.e., it doesn't a contain " + WellKnowns.YUM_REPODATA_FOLDERNAME + " folder)," +
                         " use allowCreateRepository = true to create");
             }
         }
@@ -325,7 +238,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
 
     private File determineLocalYumMetadataFile(CreateOrUpdateContext context) {
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-        String repodataFilePath = YUM_REPODATA_FOLDERNAME + "/" + YUM_REPOMETADATA_FILENAME;
+        String repodataFilePath = WellKnowns.YUM_REPODATA_FOLDERNAME + "/" + WellKnowns.YUM_REPOMETADATA_FILENAME;
         if (s3RepositoryPath.hasBucketRelativeFolder()) {
             // *prepend* repository folder path to filepath
             repodataFilePath = s3RepositoryPath.getBucketRelativeFolder() + "/" + repodataFilePath;
@@ -345,7 +258,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                     String baseFileNameToUse = baseFileName;
                     if (artifactItem.isSnapshot() && autoIncrementSnapshotArtifacts && snaphshotIndex > 0 /*never suffix with 0*/) {
                         // snapshots are treated specially -- given an incrementing suffix that will be incremented on collisions
-                        baseFileNameToUse = baseFileName + "-" + snaphshotIndex;
+                        baseFileNameToUse = baseFileName + snaphshotIndex;
                     }
                     // create filename from dependency's file name but using pom-configured target subfolder and target extension
                     String targetFileName = baseFileNameToUse + "." + artifactItem.getTargetExtension();
@@ -397,15 +310,6 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         return new DefaultArtifact(item.getGroupId(), item.getArtifactId(), item.getType()/*extension*/, item.getClassifier(), item.getVersion());
     }
 
-    private void createOrCleanStagingDirectory() throws MojoExecutionException {
-        try {
-            FileUtils.deleteDirectory(stagingDirectory);
-            FileUtils.mkdir(stagingDirectory.getAbsolutePath());
-        } catch (IOException e) {
-            throw new MojoExecutionException("failed to clean or create staging directory: " + stagingDirectory, e);
-        }
-    }
-
     private AmazonS3Client createS3Client() {
         return new AmazonS3Client(new BasicAWSCredentials(s3AccessKey, s3SecretKey));
     }
@@ -419,7 +323,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     private void pullExistingRepositoryMetadata(CreateOrUpdateContext context) throws MojoExecutionException {
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         // build bucket-relative metadata folder path *with "/" suffix*
-        String bucketRelativeMetadataFolderPath = YUM_REPODATA_FOLDERNAME + "/";
+        String bucketRelativeMetadataFolderPath = WellKnowns.YUM_REPODATA_FOLDERNAME + "/";
         if (s3RepositoryPath.hasBucketRelativeFolder()) {
             // prefix repodata/ with repository folder
             bucketRelativeMetadataFolderPath = s3RepositoryPath.getBucketRelativeFolder() + "/" + bucketRelativeMetadataFolderPath;
@@ -427,16 +331,17 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                 .withBucketName(s3RepositoryPath.getBucketName())
                 .withPrefix(bucketRelativeMetadataFolderPath/*, which has "/" suffix*/);
-        List<S3ObjectSummary> result = internalListObjects(context.getS3Session(), listObjectsRequest);
+        List<S3ObjectSummary> result = S3Utils.listAllObjects(context.getS3Session(), listObjectsRequest);
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
-            + "' with prefix '" + bucketRelativeMetadataFolderPath + "'...");
+                + "' with prefix '" + bucketRelativeMetadataFolderPath + "'...");
         for (S3ObjectSummary summary : result) {
             getLog().info("Downloading " + summary.getKey() + " from S3...");
             final S3Object object = context.getS3Session()
                     .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
             try {
                 File targetFile =
-                    new File(stagingDirectory, /*assume object key is relative path to filename with extension*/summary.getKey());
+                    new File(stagingDirectory,
+                        /*assume object key is *bucket-relative* path to the filename with extension*/summary.getKey());
                 // target file's directories will be created if they don't already exist
                 FileUtils.copyStreamToFile(new InputStreamFacade() {
                     @Override
@@ -450,52 +355,11 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         }
     }
 
-    private List<S3ObjectSummary> internalListObjects(AmazonS3 s3Session, ListObjectsRequest request) {
-        List<S3ObjectSummary> allResults = new ArrayList<S3ObjectSummary>();
-        ObjectListing result = s3Session.listObjects(request);
-        allResults.addAll(result.getObjectSummaries());
-        while (result.isTruncated()) {
-            result = s3Session.listNextBatchOfObjects(result);
-            allResults.addAll(result.getObjectSummaries());
-        }
-        return allResults;
-    }
-
     private void createRepo(CreateOrUpdateContext context) throws MojoExecutionException {
-        Commandline commandline = new Commandline();
-        commandline.setExecutable(createrepo);
-        if (determineLocalYumMetadataFile(context).isFile()) {
-            // if metadata already exists, we will execute "createrepo --update --skip-stat ."
-            commandline.createArg().setValue("--update");
-            commandline.createArg().setValue("--skip-stat");
-        }
-        S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-        if (s3RepositoryPath.hasBucketRelativeFolder()) {
-            commandline.createArg().setValue(stagingDirectory.getPath() + "/" + context.getS3RepositoryPath().getBucketRelativeFolder());
+        if (context.getLocalYumRepo().isRepoDataExists()) {
+            context.getLocalYumRepo().updateRepo();
         } else {
-            commandline.createArg().setValue(stagingDirectory.getPath());
-        }
-        getLog().debug("Executing \'" + commandline.toString() + "\'");
-        try {
-            int result = CommandLineUtils.executeCommandLine(commandline, NullStreamConsumer.theInstance, new LogStreamConsumer(getLog()));
-            if (result != 0) {
-                throw new MojoExecutionException(createrepo +" returned: \'" + result + "\' executing \'" + commandline + "\'");
-            }
-        } catch (CommandLineException e) {
-            throw new MojoExecutionException("Unable to execute: " + commandline, e);
-        }
-        getLog().info("Successfully built repo using directory: " + stagingDirectory);
-    }
-
-    private static InputStream toInputStream(File file) throws MojoExecutionException {
-        try {
-            InputStream in = new FileInputStream(file);
-            if (file.getName().endsWith(".gz")) {
-                in = new GZIPInputStream(in);
-            }
-            return in;
-        } catch (IOException e) {
-            throw new MojoExecutionException("Failed to read file " + file.getPath(), e);
+            context.getLocalYumRepo().createRepo();
         }
     }
 

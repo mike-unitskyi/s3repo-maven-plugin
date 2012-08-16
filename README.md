@@ -75,7 +75,7 @@ Here is a full configuration demonstrating all possible configuration options. S
                     <!--
                         Optional. Whether or not to auto-increment snaphsot artifacts. For example, if your repository
                         contains foo-1.0-SNAPSHOT.noarch.rpm and you are attempting to deploy this artifact again, a numeric
-                        index will be added to your snapshot to avoid name collision (e.g., foo-1.0-SNAPSHOT-1.noarch.rpm).
+                        index will be added to your snapshot to avoid name collision (e.g., foo-1.0-SNAPSHOT1.noarch.rpm).
                         The default value is true.
                     -->
                     <autoIncrementSnapshotArtifacts>true</autoIncrementSnapshotArtifacts>

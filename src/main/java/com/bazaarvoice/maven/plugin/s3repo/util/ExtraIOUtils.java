@@ -8,9 +8,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
 
-public final class IOUtils {
+public final class ExtraIOUtils {
 
-    private IOUtils() {}
+    private ExtraIOUtils() {}
 
     public static String relativize(File directory, File file) throws MojoExecutionException {
         if (!directory.isDirectory()) {
