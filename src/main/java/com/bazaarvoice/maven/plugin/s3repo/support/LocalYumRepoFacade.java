@@ -63,6 +63,10 @@ public final class LocalYumRepoFacade {
         internalCreateRepo(true/*no update*/);
     }
 
+    public File repoDataDirectory() {
+        return new File(repositoryRoot, WellKnowns.YUM_REPODATA_FOLDERNAME);
+    }
+
     /** Execute the createrepo command. */
     private void internalCreateRepo(boolean updateOnly) throws MojoExecutionException {
         Commandline commandline = new Commandline();
@@ -102,8 +106,7 @@ public final class LocalYumRepoFacade {
     /** Resolve repomd file (i.e., repodata/repomd.xml) file. */
     private File determineRepoMetadataFile() {
         // path to repomd.xml, e.g.
-        String repodataFilePath = WellKnowns.YUM_REPODATA_FOLDERNAME + "/" + WellKnowns.YUM_REPOMETADATA_FILENAME;
-        return new File(repositoryRoot, repodataFilePath);
+        return new File(repoDataDirectory(), WellKnowns.YUM_REPOMETADATA_FILENAME);
     }
 
     private File resolvePrimaryMetadataFile(Document metadata) throws MojoExecutionException {

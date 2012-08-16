@@ -64,6 +64,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
     private boolean doNotUpload;
 
+    /** Only upload the new repo metadata. */
+    @Parameter(property = "s3repo.uploadMetadataOnly", defaultValue = "true")
+    private boolean uploadMetadataOnly;
+
     /** Indicates whether we should clean the staging directory before pulling the repository; this is helpful because
       existing files in staging are not re-downloaded; this is especially helpful for debugging this plugin during
       development. */
@@ -121,7 +125,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
         final String targetBucket = context.getS3RepositoryPath().getBucketName();
         AmazonS3 s3Session = context.getS3Session();
-        for (File toUpload : ExtraIOUtils.listAllFiles(stagingDirectory)) {
+        File directoryToUpload = uploadMetadataOnly
+                ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
+                : stagingDirectory; // the entire staging directory/bucket
+        for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
+            // relativize path wrt to *stagingDirectory* which represents our *bucket*
             String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
             // replace *other* file separators with S3-style file separators and strip first & last separator
             relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
