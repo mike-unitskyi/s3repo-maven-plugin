@@ -1,18 +1,16 @@
 package com.bazaarvoice.maven.plugin.s3repo.rebuild;
 
-import java.util.Date;
-
 /** Basic snapshot description. */
 final class SnapshotDescription {
 
     private final String bucketKeyPrefix;
     private final String bucketKey;
-    private final Date lastModified;
+    private final int ordinal;
 
-    public SnapshotDescription(String bucketKeyPrefix, String bucketKey, Date lastModified) {
+    public SnapshotDescription(String bucketKeyPrefix, String bucketKey, int ordinal) {
         this.bucketKeyPrefix = bucketKeyPrefix;
         this.bucketKey = bucketKey;
-        this.lastModified = lastModified;
+        this.ordinal = ordinal;
     }
 
     public String getBucketKeyPrefix() {
@@ -23,8 +21,8 @@ final class SnapshotDescription {
         return bucketKey;
     }
 
-    public Date getLastModified() {
-        return lastModified;
+    public int getOrdinal() {
+        return ordinal;
     }
 
 }

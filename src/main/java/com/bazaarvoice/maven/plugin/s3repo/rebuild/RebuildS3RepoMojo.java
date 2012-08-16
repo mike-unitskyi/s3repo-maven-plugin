@@ -21,6 +21,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.io.InputStreamFacade;
+import org.sonatype.aether.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -152,8 +153,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                     Collections.sort(snapshotsRepresentingSameInstallable, new Comparator<SnapshotDescription>() {
                         @Override
                         public int compare(SnapshotDescription left, SnapshotDescription right) {
-                            // IMPORTANT: this ensures that *newer* artifacts are ordered first
-                            return right.getLastModified().compareTo(left.getLastModified());
+                            // IMPORTANT: this ensures that *latest/newer* artifacts are ordered first
+                            return right.getOrdinal() - left.getOrdinal();
                         }
                     });
                     // start with *second* artifact; delete it and everything after it (these are the older artifacts)
@@ -263,10 +264,21 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         if (snapshotIndex > 0) { // heuristic: we have a SNAPSHOT artifact here
             final String prefixWithoutPath = fileName.substring(0, snapshotIndex);
             final String bucketKeyPrefix = path + prefixWithoutPath;
+            // try to convert anything after the SNAPSHOT into an ordinal value
+            final int ordinal = toOrdinal(fileName.substring(snapshotIndex));
             getLog().debug("Making note of snapshot '" + summary.getKey() + "'; using prefix = " + bucketKeyPrefix);
             // ASSERT: bucketKeyPrefix is *full path* of bucket key up to and excluding the SNAPSHOT string and anything after it.
-            context.addSnapshotDescription(new SnapshotDescription(bucketKeyPrefix, summary.getKey(), summary.getLastModified()));
+            context.addSnapshotDescription(new SnapshotDescription(bucketKeyPrefix, summary.getKey(), ordinal));
         }
+    }
+
+    private static int toOrdinal(String snapshotSuffix) {
+        // replace all non-digits
+        String digitsOnly = snapshotSuffix.replaceAll("\\D", "");
+        if (StringUtils.isEmpty(digitsOnly)) {
+            return -1;
+        }
+        return Integer.parseInt(digitsOnly);
     }
 
     private S3RepositoryPath parseS3RepositoryPath() throws MojoExecutionException {
