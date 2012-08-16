@@ -85,7 +85,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         maybeRemoveOldSnapshots(context);
         // rebuild -- rerun createrepo
         rebuildRepo(context);
-        // upload repository if doNotUpload = false
+        // upload repository and delete old snapshots etc. if doNotUpload = false
         maybeUploadRepository(context);
     }
 
