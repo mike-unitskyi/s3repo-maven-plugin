@@ -105,6 +105,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, key, toUpload);
             s3Session.putObject(putObjectRequest);
         }
+        // and finally, delete any bucket keys we wish to remove (e.g., old snaphots)
+        for (String bucketKeyToDelete : context.getSnapshotBucketKeysToDelete()) {
+            getLog().info("Deleting old snapshot '" + bucketKeyToDelete + "' from S3...");
+            context.getS3Session().deleteObject(context.getS3RepositoryPath().getBucketName(), bucketKeyToDelete);
+        }
     }
 
     private void rebuildRepo(RebuildContext context) throws MojoExecutionException {
@@ -133,9 +138,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         getLog().info("Deleting old snapshot '" + toDelete.getBucketKey() + "', locally...");
                         // delete object locally so createrepo step doesn't pick it up
                         context.getLocalYumRepo().deleteFile(toDelete.getBucketKey());
-                        getLog().info("Deleting old snapshot '" + toDelete.getBucketKey() + "' from S3...");
-                        // also delete object from s3; so it doesn't remain when we upload our newly built repository
-                        context.getS3Session().deleteObject(context.getS3RepositoryPath().getBucketName(), toDelete.getBucketKey());
+                        // we'll also delete the object from s3 but only after we upload the repository metadata
+                        // (so we don't confuse any repo clients who are reading the current repo metadata)
+                        context.addBucketKeyOfSnapshotToDelete(toDelete.getBucketKey());
                     }
                 }
             }

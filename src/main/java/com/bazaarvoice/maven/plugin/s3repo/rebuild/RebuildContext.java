@@ -30,6 +30,7 @@ final class RebuildContext {
      */
     private final Map<String, List<SnapshotDescription>> bucketKeyPrefixToSnapshots
             = new HashMap<String, List<SnapshotDescription>>();
+    private final List<String> snapshotBucketKeysToDelete = new ArrayList<String>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -66,6 +67,14 @@ final class RebuildContext {
 
     public Map<String, List<SnapshotDescription>> getBucketKeyPrefixToSnapshots() {
         return bucketKeyPrefixToSnapshots;
+    }
+
+    public void addBucketKeyOfSnapshotToDelete(String snapshotBucketKey) {
+        snapshotBucketKeysToDelete.add(snapshotBucketKey);
+    }
+
+    public List<String> getSnapshotBucketKeysToDelete() {
+        return snapshotBucketKeysToDelete;
     }
 
 }
