@@ -138,6 +138,8 @@ Here is a full configuration demonstrating all possible configuration options. S
 rebuild-repo: Usage Examples
 ============================
 
+NOTE: This goal does not require a project to run; *you can run it from any directory*.
+
 A simple example:
 
     $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.2:rebuild-repo \
@@ -152,6 +154,14 @@ If you want to clean up old snapshots, use:
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
         -Ds3repo.removeOldSnapshots=true
+
+If you want to use a non-temp staging directory:
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.2:rebuild-repo \
+        -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
+        -Ds3repo.accessKey=ABC \
+        -Ds3repo.secretKey=DEF \
+        -Ds3repo.stagingDirectory=/path/to/staging/dir
 
 A verbose example:
 

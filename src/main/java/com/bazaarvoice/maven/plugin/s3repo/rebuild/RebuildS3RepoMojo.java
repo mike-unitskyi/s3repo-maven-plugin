@@ -13,6 +13,7 @@ import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
+import com.google.common.io.Files;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -29,11 +30,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
-@Mojo (name = "rebuild-repo")
+@Mojo (name = "rebuild-repo", requiresProject = false)
 public final class RebuildS3RepoMojo extends AbstractMojo {
 
     /** Staging directory. This is where we will recreate the relevant *bucket* files. */
-    @Parameter(property = "s3repo.stagingDirectory", defaultValue = "${project.build.directory}/s3repo")
+    @Parameter(property = "s3repo.stagingDirectory")
     private File stagingDirectory;
 
     /**
@@ -74,6 +75,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        determineAndSetStagingDirectoryIfNeeded();
+
         RebuildContext context = new RebuildContext();
 
         context.setS3Session(createS3Client());
@@ -93,6 +96,13 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         rebuildRepo(context);
         // upload repository and delete old snapshots etc. if doNotUpload = false
         maybeUploadRepository(context);
+    }
+
+    private void determineAndSetStagingDirectoryIfNeeded() {
+        if (stagingDirectory == null) {
+            stagingDirectory = Files.createTempDir();
+        }
+        getLog().info("I will use " + stagingDirectory.getAbsolutePath() + " as your staging directory.");
     }
 
     private void maybeCleanStagingDirectory() throws MojoExecutionException {
