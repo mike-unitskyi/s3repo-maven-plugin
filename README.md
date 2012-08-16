@@ -8,16 +8,17 @@ Goals
 =====
 
 __create-update__ - Creates or updates an S3 YUM repository.
+__rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
 
-Usage Example
-=============
+create-update: Usage Example
+============================
 
 Here is a common configuration:
 
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.0</version> <!-- use latest version instead -->
+        <version>1.1</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>package</phase>
@@ -41,8 +42,8 @@ Here is a common configuration:
         </executions>
     </plugin>
 
-Special Notes
-=============
+create-update: Special Notes
+============================
 
 * If one of your declared artifact items *already* exists in your S3 YUM repository, the goal will fail UNLESS the declared
   artifact item is a *SNAPSHOT* dependency and the **autoIncrementSnapshotArtifacts** configuration property is true (this
@@ -50,15 +51,15 @@ is the default value/behavior).
 * You can use "-Ds3repo.allowCreateRepository=true" the first time you run the plugin to initialize a new repository; subsequent
   runs for a project can leave this value at its default (false) for extra safety.
 
-Full Usage Example
-==================
+create-update: Full Usage Example
+=================================
 
 Here is a full configuration demonstrating all possible configuration options. See comments for further explanation:
 
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.0</version> <!-- use latest version instead -->
+        <version>1.1</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
@@ -131,3 +132,34 @@ Here is a full configuration demonstrating all possible configuration options. S
         </executions>
     </plugin>
 
+rebuild-repo: Usage Example
+===========================
+
+A simple example:
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+        -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
+        -Ds3repo.accessKey=ABC \
+        -Ds3repo.secretKey=DEF
+
+If you want to clean up old snapshots, use:
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+        -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
+        -Ds3repo.accessKey=ABC \
+        -Ds3repo.secretKey=DEF \
+        -Ds3repo.removeOldSnapshots=true
+
+A verbose example:
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+        -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
+        -Ds3repo.accessKey=ABC \
+        -Ds3repo.secretKey=DEF \
+        -Ds3repo.removeOldSnapshots=true \
+        -Ds3repo.doNotValidate=true \
+        -Ds3repo.doNotUpload=true \
+        -Ds3repo.createrepo=/usr/bin/createrepo
+
+Use "s3repo.doNotUpload" to rebuild the repository locally but not upload it. Use "s3repo.doNotValidate"
+to rebuild the repository but not fail if existing repo metadata is missing or corrupt.
