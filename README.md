@@ -135,8 +135,8 @@ Here is a full configuration demonstrating all possible configuration options. S
         </executions>
     </plugin>
 
-rebuild-repo: Usage Example
-===========================
+rebuild-repo: Usage Examples
+============================
 
 A simple example:
 
