@@ -21,7 +21,7 @@ Here is a common configuration:
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.1</version> <!-- use latest version instead -->
+        <version>1.2</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>package</phase>
@@ -62,7 +62,7 @@ Here is a full configuration demonstrating all possible configuration options. S
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.1</version> <!-- use latest version instead -->
+        <version>1.2</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
@@ -140,14 +140,14 @@ rebuild-repo: Usage Examples
 
 A simple example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.2:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF
 
 If you want to clean up old snapshots, use:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.2:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -155,7 +155,7 @@ If you want to clean up old snapshots, use:
 
 A verbose example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.1:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.2:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
