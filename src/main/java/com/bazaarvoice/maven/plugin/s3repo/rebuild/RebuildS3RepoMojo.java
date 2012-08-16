@@ -62,6 +62,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
     private boolean doNotUpload;
 
+    /** Indicates whether we should; especially helpful for debugging this plugin during development. */
+    @Parameter(property = "s3repo.doNotPreClean", defaultValue = "false")
+    private boolean doNotPreClean;
+
     /** The createrepo executable. */
     @Parameter(property = "s3repo.createrepo", defaultValue = "createrepo")
     private String createrepo;
@@ -75,7 +79,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
 
         // always clean staging directory
-        ExtraFileUtils.createOrCleanDirectory(stagingDirectory);
+        maybeCleanStagingDirectory();
 
         // download entire repository
         pullEntireRepository(context);
@@ -87,6 +91,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         rebuildRepo(context);
         // upload repository and delete old snapshots etc. if doNotUpload = false
         maybeUploadRepository(context);
+    }
+
+    private void maybeCleanStagingDirectory() throws MojoExecutionException {
+        if (doNotPreClean) {
+            getLog().warn("Not cleaning staging directory!!!");
+            return;
+        }
+        ExtraFileUtils.createOrCleanDirectory(stagingDirectory);
     }
 
     private void maybeUploadRepository(RebuildContext context) throws MojoExecutionException {
@@ -192,23 +204,28 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + s3RepositoryPath.getBucketRelativeFolder() + "/" + "'...");
         for (S3ObjectSummary summary : result) {
-            getLog().info("Downloading " + summary.getKey() + " from S3...");
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
             maybeAddSnapshotMetadata(summary, context);
-            final S3Object object = context.getS3Session()
-                    .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
-            try {
-                File targetFile =
-                        new File(stagingDirectory, /*assume object key is bucket-relative path to filename with extension*/summary.getKey());
-                // target file's directories will be created if they don't already exist
-                FileUtils.copyStreamToFile(new InputStreamFacade() {
-                    @Override
-                    public InputStream getInputStream() throws IOException {
-                        return object.getObjectContent();
-                    }
-                }, targetFile);
-            } catch (IOException e) {
-                throw new MojoExecutionException("failed to downlod object from s3: " + summary.getKey(), e);
+            if (new File(stagingDirectory, summary.getKey()).isFile()) {
+                // file exists (likely due to doNotPreClean = true); do not download
+                getLog().info("Skipping download of '" + summary.getKey() + "' from S3 as file already exists...");
+            } else { // file doesn't yet exist
+                getLog().info("Downloading '" + summary.getKey() + "' from S3...");
+                final S3Object object = context.getS3Session()
+                        .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
+                try {
+                    File targetFile =
+                            new File(stagingDirectory, /*assume object key is bucket-relative path to filename with extension*/summary.getKey());
+                    // target file's directories will be created if they don't already exist
+                    FileUtils.copyStreamToFile(new InputStreamFacade() {
+                        @Override
+                        public InputStream getInputStream() throws IOException {
+                            return object.getObjectContent();
+                        }
+                    }, targetFile);
+                } catch (IOException e) {
+                    throw new MojoExecutionException("failed to downlod object from s3: " + summary.getKey(), e);
+                }
             }
         }
     }
