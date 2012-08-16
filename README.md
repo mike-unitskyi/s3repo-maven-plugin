@@ -45,7 +45,7 @@ Here is a common configuration:
 create-update: Special Notes
 ============================
 
-* If one of your declared artifact items *already* exists in your S3 YUM repository, the goal will fail UNLESS the declared
+* If one of your declared artifact items *already* exists in your S3 YUM repository, the goal will fail unless the declared
   artifact item is a *SNAPSHOT* dependency and the **autoIncrementSnapshotArtifacts** configuration property is true (this
 is the default value/behavior).
 * You can use "-Ds3repo.allowCreateRepository=true" the first time you run the plugin to initialize a new repository; subsequent
