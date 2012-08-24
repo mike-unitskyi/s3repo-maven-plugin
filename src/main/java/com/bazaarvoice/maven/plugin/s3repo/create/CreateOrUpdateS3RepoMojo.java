@@ -285,6 +285,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                         break;
                     }
                 } while (true);
+                getLog().info("Copying artifact to " + targetFile.getPath());
                 FileUtils.copyFile(artifactItem.getResolvedArtifact().getArtifact().getFile(), targetFile);
             } catch (IOException e) {
                 throw new MojoExecutionException("failed to copy artifact " + artifactItem + " to target", e);
