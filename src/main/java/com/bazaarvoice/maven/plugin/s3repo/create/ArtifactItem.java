@@ -24,6 +24,9 @@ public final class ArtifactItem {
     @Parameter
     private String targetSubfolder = "";
 
+    @Parameter /** The target file name (excluding extension); optional - otherwise the name will be inferred. */
+    private String targetBaseName = null;
+
     @Parameter
     private String targetExtension = "noarch.rpm";
 
@@ -72,6 +75,18 @@ public final class ArtifactItem {
 
     public void setClassifier(String classifier) {
         this.classifier = classifier;
+    }
+
+    public boolean hasTargetBaseName() {
+        return !StringUtils.isEmpty(targetBaseName);
+    }
+
+    public String getTargetBaseName() {
+        return targetBaseName;
+    }
+
+    public void setTargetBaseName(String targetBaseName) {
+        this.targetBaseName = targetBaseName;
     }
 
     public String getTargetExtension() {

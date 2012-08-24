@@ -250,8 +250,10 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         for (ArtifactItem artifactItem : resolvedArtifactItems) {
             try {
                 S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-                // use <artifactID>-<version> as extensionless filename
-                String baseFileName = artifactItem.getArtifactId() + "-" + artifactItem.getVersion();
+                // if a targetBaseName isn't specified, use <artifactID>-<version> as extensionless filename
+                final String baseFileName = artifactItem.hasTargetBaseName()
+                            ? artifactItem.getTargetBaseName()
+                            : artifactItem.getArtifactId() + "-" + artifactItem.getVersion();
                 int snaphshotIndex = 0;
                 File targetFile;
                 do {

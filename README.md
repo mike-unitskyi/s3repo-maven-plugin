@@ -118,8 +118,12 @@ Here is a full configuration demonstrating all possible configuration options. S
                             <type>rpm</type>
                             <classifier>rpm</classifier>
                             <!--
+                                Optional target base file name to use for the installable; it defaults to <artifactId>-<version>.
+                            -->
+                            <targetBaseName>${yourTargetBaseName}</targetBaseName>
+                            <!--
                                 Optional target extension to use for your artifact; it defaults to "noarch.rpm".
-                                The artifact name that is added to the repository will be <artifactId>-<version>-<targetExtension>.
+                                The artifact name that is added to the repository will be <yourTargetBaseName>-<targetExtension>.
                             -->
                             <targetExtension>noarch.rpm</targetExtension>
                             <!--
