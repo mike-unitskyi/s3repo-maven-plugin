@@ -235,6 +235,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + s3RepositoryPath.getBucketRelativeFolder() + "/" + "'...");
         for (S3ObjectSummary summary : result) {
+            if (summary.getKey().endsWith("/")) {
+                getLog().info("no need to download " + summary.getKey() + ", it's a folder");
+                continue;
+            }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
             maybeAddSnapshotMetadata(summary, context);
             if (new File(stagingDirectory, summary.getKey()).isFile()) {
@@ -255,7 +259,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         }
                     }, targetFile);
                 } catch (IOException e) {
-                    throw new MojoExecutionException("failed to downlod object from s3: " + summary.getKey(), e);
+                    throw new MojoExecutionException("failed to download object from s3: " + summary.getKey(), e);
                 }
             }
         }

@@ -339,6 +339,10 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + bucketRelativeMetadataFolderPath + "'...");
         for (S3ObjectSummary summary : result) {
+            if (summary.getKey().endsWith("/")) {
+                getLog().info("no need to download " + summary.getKey() + ", it's a folder");
+                continue;
+            }
             getLog().info("Downloading " + summary.getKey() + " from S3...");
             final S3Object object = context.getS3Session()
                     .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
@@ -354,7 +358,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                     }
                 }, targetFile);
             } catch (IOException e) {
-                throw new MojoExecutionException("failed to downlod object from s3: " + summary.getKey(), e);
+                throw new MojoExecutionException("failed to download object from s3: " + summary.getKey(), e);
             }
         }
     }
