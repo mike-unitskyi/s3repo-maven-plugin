@@ -247,7 +247,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 try {
                     File targetFile =
                             new File(stagingDirectory, /*assume object key is bucket-relative path to filename with extension*/summary.getKey());
-                    // target file's directories will be created if they don't already exist
+                    Files.createParentDirs(targetFile);
                     FileUtils.copyStreamToFile(new InputStreamFacade() {
                         @Override
                         public InputStream getInputStream() throws IOException {
