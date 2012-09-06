@@ -201,14 +201,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             // rename was successful -- also ensure that we queue up the snapshot to rename it remotely
             context.addSnapshotToRename(RemoteSnapshotRename.withNewBucketKey(snapshotDescription, localFileToS3BucketKey(renameTo)));
             getLog().info("Renamed " + ExtraIOUtils.relativize(stagingDirectory, latestSnapshotFile)
-                    + " => " + ExtraIOUtils.relativize(stagingDirectory, renameTo));
+                    + " => " + renameTo.getName() /*note can't relativize non-existent file*/);
         } else {
             getLog().warn("Failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
     }
 
     private void deleteBucketRelativePath(String bucketRelativePath) throws MojoExecutionException {
-        File toDelete = new File(stagingDirectory, bucketRelativePath);
+        final File toDelete = new File(stagingDirectory, bucketRelativePath);
         if (!toDelete.isFile()) {
             throw new MojoExecutionException("Cannot delete non-existent file: " + toDelete);
         }
@@ -263,7 +263,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 + "' with prefix '" + s3RepositoryPath.getBucketRelativeFolder() + "/" + "'...");
         for (S3ObjectSummary summary : result) {
             if (summary.getKey().endsWith("/")) {
-                getLog().info("no need to download " + summary.getKey() + ", it's a folder");
+                getLog().info("No need to download " + summary.getKey() + ", it's a folder");
                 continue;
             }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
