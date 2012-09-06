@@ -14,6 +14,7 @@ import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
 import com.google.common.io.Files;
+import org.apache.commons.lang.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -21,7 +22,6 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.io.InputStreamFacade;
-import org.sonatype.aether.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,7 +34,8 @@ import java.util.Map;
 @Mojo (name = "rebuild-repo", requiresProject = false)
 public final class RebuildS3RepoMojo extends AbstractMojo {
 
-    /** Staging directory. This is where we will recreate the relevant *bucket* files. */
+    /** Staging directory. This is where we will recreate the relevant *bucket* files (i.e., this acts as the
+       root of the ). */
     @Parameter(property = "s3repo.stagingDirectory")
     private File stagingDirectory;
 
@@ -138,7 +139,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, key, toUpload);
             s3Session.putObject(putObjectRequest);
         }
-        // and finally, delete any bucket keys we wish to remove (e.g., old snaphots)
+        // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)
         for (String bucketKeyToDelete : context.getSnapshotBucketKeysToDelete()) {
             getLog().info("Deleting old snapshot '" + bucketKeyToDelete + "' from S3...");
             context.getS3Session().deleteObject(context.getS3RepositoryPath().getBucketName(), bucketKeyToDelete);
@@ -175,8 +176,18 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         // (so we don't confuse any repo clients who are reading the current repo metadata)
                         context.addBucketKeyOfSnapshotToDelete(toDelete.getBucketKey());
                     }
+                    // rename the lastest snapshot (which is the first in our list) discarding it's SNAPSHOT numeric suffix
+                    renameSnapshotLocalFileByStrippingSnapshotNumerics(snapshotsRepresentingSameInstallable.get(0));
                 }
             }
+        }
+    }
+
+    private void renameSnapshotLocalFileByStrippingSnapshotNumerics(SnapshotDescription snapshotDescription) {
+        final File latestSnapshotFile = new File(stagingDirectory, /*bucket-relative path*/snapshotDescription.getBucketKey());
+        final File renameTo = new File(latestSnapshotFile.getParent(), tryStripSnapshotNumerics(latestSnapshotFile.getName()));
+        if (!latestSnapshotFile.renameTo(renameTo)) {
+            getLog().warn("failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
     }
 
@@ -305,6 +316,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         } catch (Exception e) {
             throw new MojoExecutionException("Failed to parse S3 repository path: " + s3RepositoryPath, e);
         }
+    }
+
+    private String tryStripSnapshotNumerics(String snapshotFileName) {
+        if (StringUtils.countMatches(snapshotFileName, "SNAPSHOT") != 1) {
+            getLog().warn("filename did not look like a normal SNAPSHOT");
+            return snapshotFileName; // do nothing
+        }
+        return snapshotFileName.replaceAll("SNAPSHOT\\d+\\.", "SNAPSHOT.");
     }
 
 }
