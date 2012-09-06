@@ -197,11 +197,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private void renameSnapshotLocalFileByStrippingSnapshotNumerics(RebuildContext context, SnapshotDescription snapshotDescription) throws MojoExecutionException {
         final File latestSnapshotFile = new File(stagingDirectory, /*bucket-relative path*/snapshotDescription.getBucketKey());
         final File renameTo = new File(latestSnapshotFile.getParent(), tryStripSnapshotNumerics(latestSnapshotFile.getName()));
+        getLog().info("Renaming " + ExtraIOUtils.relativize(stagingDirectory, latestSnapshotFile)
+                + " => " + renameTo.getName() /*note can't relativize non-existent file*/);
         if (latestSnapshotFile.renameTo(renameTo)) {
             // rename was successful -- also ensure that we queue up the snapshot to rename it remotely
             context.addSnapshotToRename(RemoteSnapshotRename.withNewBucketKey(snapshotDescription, localFileToS3BucketKey(renameTo)));
-            getLog().info("Renamed " + ExtraIOUtils.relativize(stagingDirectory, latestSnapshotFile)
-                    + " => " + renameTo.getName() /*note can't relativize non-existent file*/);
         } else {
             getLog().warn("Failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
