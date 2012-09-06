@@ -131,19 +131,30 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 : stagingDirectory; // the entire staging directory/bucket
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             // relativize path wrt to *stagingDirectory* which represents our *bucket*
-            String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
-            // replace *other* file separators with S3-style file separators and strip first & last separator
-            relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
-            String key = relativizedPath;
-            getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + key + "...");
-            PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, key, toUpload);
+            final String bucketKey = localFileToS3BucketKey(toUpload);
+            getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
+            PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, bucketKey, toUpload);
             s3Session.putObject(putObjectRequest);
         }
         // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)
-        for (String bucketKeyToDelete : context.getSnapshotBucketKeysToDelete()) {
-            getLog().info("Deleting old snapshot '" + bucketKeyToDelete + "' from S3...");
-            context.getS3Session().deleteObject(context.getS3RepositoryPath().getBucketName(), bucketKeyToDelete);
+        for (SnapshotDescription toDelete : context.getSnapshotsToDeleteRemotely()) {
+            getLog().info("Deleting old snapshot '" + toDelete + "' from S3...");
+            context.getS3Session().deleteObject(targetBucket, toDelete.getBucketKey());
         }
+        for (RemoteSnapshotRename toRename : context.getSnapshotsToRenameRemotely()) {
+            final String sourceBucketKey = toRename.getSource().getBucketKey();
+            final String targetBucketKey = toRename.getNewBucketKey();
+            getLog().info("Renaming key '" + sourceBucketKey + "' to '" + toRename.getNewBucketKey() + "' in S3...");
+            context.getS3Session().copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
+            context.getS3Session().deleteObject(targetBucket, sourceBucketKey);
+        }
+    }
+
+    private String localFileToS3BucketKey(File toUpload) throws MojoExecutionException {
+        String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
+        // replace *other* file separators with S3-style file separators and strip first & last separator
+        relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
+        return relativizedPath;
     }
 
     private void rebuildRepo(RebuildContext context) throws MojoExecutionException {
@@ -174,22 +185,25 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         deleteBucketRelativePath(toDelete.getBucketKey());
                         // we'll also delete the object from s3 but only after we upload the repository metadata
                         // (so we don't confuse any repo clients who are reading the current repo metadata)
-                        context.addBucketKeyOfSnapshotToDelete(toDelete.getBucketKey());
+                        context.addSnapshotToDelete(toDelete);
                     }
                     // rename the lastest snapshot (which is the first in our list) discarding it's SNAPSHOT numeric suffix
-                    renameSnapshotLocalFileByStrippingSnapshotNumerics(snapshotsRepresentingSameInstallable.get(0));
+                    renameSnapshotLocalFileByStrippingSnapshotNumerics(context, snapshotsRepresentingSameInstallable.get(0));
                 }
             }
         }
     }
 
-    private void renameSnapshotLocalFileByStrippingSnapshotNumerics(SnapshotDescription snapshotDescription) {
+    private void renameSnapshotLocalFileByStrippingSnapshotNumerics(RebuildContext context, SnapshotDescription snapshotDescription) throws MojoExecutionException {
         final File latestSnapshotFile = new File(stagingDirectory, /*bucket-relative path*/snapshotDescription.getBucketKey());
         final File renameTo = new File(latestSnapshotFile.getParent(), tryStripSnapshotNumerics(latestSnapshotFile.getName()));
         if (latestSnapshotFile.renameTo(renameTo)) {
-            getLog().info("Renamed " + latestSnapshotFile.getPath() + " => " + renameTo.getPath());
+            // rename was successful -- also ensure that we queue up the snapshot to rename it remotely
+            context.addSnapshotToRename(RemoteSnapshotRename.withNewBucketKey(snapshotDescription, localFileToS3BucketKey(renameTo)));
+            getLog().info("Renamed " + ExtraIOUtils.relativize(stagingDirectory, latestSnapshotFile)
+                    + " => " + ExtraIOUtils.relativize(stagingDirectory, renameTo));
         } else {
-            getLog().warn("failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
+            getLog().warn("Failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
     }
 

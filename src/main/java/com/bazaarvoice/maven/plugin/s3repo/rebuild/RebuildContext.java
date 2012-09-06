@@ -28,9 +28,9 @@ final class RebuildContext {
      * The heuristic used here looks for any artifacts that contain the word "SNAPSHOT" and uses all characters
      * before this string as the key.
      */
-    private final Map<String, List<SnapshotDescription>> bucketKeyPrefixToSnapshots
-            = new HashMap<String, List<SnapshotDescription>>();
-    private final List<String> snapshotBucketKeysToDelete = new ArrayList<String>();
+    private final Map<String, List<SnapshotDescription>> bucketKeyPrefixToSnapshots = new HashMap<String, List<SnapshotDescription>>();
+    private final List<SnapshotDescription> snapshotsToDeleteRemotely = new ArrayList<SnapshotDescription>();
+    private final List<RemoteSnapshotRename> snapshotsToRenameRemotely = new ArrayList<RemoteSnapshotRename>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -69,12 +69,20 @@ final class RebuildContext {
         return bucketKeyPrefixToSnapshots;
     }
 
-    public void addBucketKeyOfSnapshotToDelete(String snapshotBucketKey) {
-        snapshotBucketKeysToDelete.add(snapshotBucketKey);
+    public void addSnapshotToDelete(SnapshotDescription toDelete) {
+        snapshotsToDeleteRemotely.add(toDelete);
     }
 
-    public List<String> getSnapshotBucketKeysToDelete() {
-        return snapshotBucketKeysToDelete;
+    public List<SnapshotDescription> getSnapshotsToDeleteRemotely() {
+        return snapshotsToDeleteRemotely;
+    }
+
+    public void addSnapshotToRename(RemoteSnapshotRename toRename) {
+        snapshotsToRenameRemotely.add(toRename);
+    }
+
+    public List<RemoteSnapshotRename> getSnapshotsToRenameRemotely() {
+        return snapshotsToRenameRemotely;
     }
 
 }
