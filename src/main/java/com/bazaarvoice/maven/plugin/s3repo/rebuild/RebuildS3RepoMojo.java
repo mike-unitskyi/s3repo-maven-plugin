@@ -186,7 +186,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private void renameSnapshotLocalFileByStrippingSnapshotNumerics(SnapshotDescription snapshotDescription) {
         final File latestSnapshotFile = new File(stagingDirectory, /*bucket-relative path*/snapshotDescription.getBucketKey());
         final File renameTo = new File(latestSnapshotFile.getParent(), tryStripSnapshotNumerics(latestSnapshotFile.getName()));
-        if (!latestSnapshotFile.renameTo(renameTo)) {
+        if (latestSnapshotFile.renameTo(renameTo)) {
+            getLog().info("Renamed " + latestSnapshotFile.getPath() + " => " + renameTo.getPath());
+        } else {
             getLog().warn("failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
     }
