@@ -1,6 +1,8 @@
 s3repo-maven-plugin
 ===================
 
+The latest version is **1.12**.
+
 Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.  Also has a goal to support rebuilding S3 YUM
 repositories.
 
