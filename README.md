@@ -182,3 +182,9 @@ A verbose example:
 
 Use "s3repo.doNotUpload" to rebuild the repository locally but not upload it. Use "s3repo.doNotValidate"
 to rebuild the repository but not fail if existing repo metadata is missing or corrupt.
+
+Wishlist
+========
+
+* upload RPM to repository without needing a Maven project/POM (i.e., in the Mojo, requiresProject = false)
+* purge any explicit set of RPMs from the repository (again, without needing a Maven project)
