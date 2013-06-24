@@ -1,7 +1,7 @@
 s3repo-maven-plugin
 ===================
 
-The latest version is **1.12**.
+The latest version is **1.13**.
 
 Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.  Also has a goal to support rebuilding S3 YUM
 repositories.
@@ -23,7 +23,7 @@ Here is a common configuration:
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.12</version> <!-- use latest version instead -->
+        <version>1.13</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>package</phase>
@@ -64,7 +64,7 @@ Here is a full configuration demonstrating all possible configuration options. S
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.12</version> <!-- use latest version instead -->
+        <version>1.13</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
@@ -148,14 +148,14 @@ NOTE: This goal does not require a project to run; *you can run it from any dire
 
 A simple example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.12:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF
 
 If you want to clean up old snapshots, use:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.12:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -163,7 +163,7 @@ If you want to clean up old snapshots, use:
 
 If you want to use a non-temp staging directory:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.12:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -171,7 +171,7 @@ If you want to use a non-temp staging directory:
 
 A verbose example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.12:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
