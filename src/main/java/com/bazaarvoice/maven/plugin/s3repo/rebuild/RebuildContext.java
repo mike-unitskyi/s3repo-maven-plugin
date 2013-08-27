@@ -33,8 +33,10 @@ final class RebuildContext {
     private final Map<String, List<SnapshotDescription>> bucketKeyPrefixToSnapshots = new HashMap<String, List<SnapshotDescription>>();
     private final List<SnapshotDescription> snapshotsToDeleteRemotely = new ArrayList<SnapshotDescription>();
     private final List<RemoteSnapshotRename> snapshotsToRenameRemotely = new ArrayList<RemoteSnapshotRename>();
-    /** Repo-relative file paths that we will delete remotely. */
+    /** Repo-relative file paths that are explicitly excluded. */
     private final Set<String> excludedFiles = new HashSet<String>();
+    /** Repo-relative file paths that we will delete remotely. */
+    private final Set<String> excludedFilesToDelete = new HashSet<String>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -97,6 +99,14 @@ final class RebuildContext {
     /** Repo-relative paths. */
     public Set<String> getExcludedFiles() {
         return excludedFiles;
+    }
+
+    public void addExcludedFileToDelete(String repoRelativePath) {
+        excludedFilesToDelete.add(repoRelativePath);
+    }
+
+    public Set<String> getExcludedFilesToDelete() {
+        return excludedFilesToDelete;
     }
 
 }

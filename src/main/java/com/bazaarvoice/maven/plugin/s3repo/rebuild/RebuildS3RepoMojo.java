@@ -161,11 +161,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             }
         }
         // delete any excluded files remotely.
-        for (String repoRelativePath : context.getExcludedFiles()) {
+        for (String repoRelativePath : context.getExcludedFilesToDelete()) {
             final String bucketKey = s3RepositoryPath.hasBucketRelativeFolder()
                 ? s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePath
                 : repoRelativePath;
-            getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3 (if it exists)...");
+            getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3...");
             if (!doNotUpload) {
                 context.getS3Session().deleteObject(targetBucket, bucketKey);
             }
@@ -313,6 +313,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             getLog().debug("repo relative path = " + asRepoRelativePath);
             if (context.getExcludedFiles().contains(asRepoRelativePath)) {
                 getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
+                context.addExcludedFileToDelete(asRepoRelativePath);
                 continue;
             }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
