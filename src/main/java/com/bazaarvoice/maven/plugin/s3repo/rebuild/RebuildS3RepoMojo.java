@@ -144,7 +144,6 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         if (doNotUpload) {
             getLog().info("NOTE: Per configuration, we will not perform any remote operations on the S3 repository.");
             getLog().info("The following logs show what WOULD HAVE HAPPENED:");
-            return;
         }
         final S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         final String targetBucket = s3RepositoryPath.getBucketName();
