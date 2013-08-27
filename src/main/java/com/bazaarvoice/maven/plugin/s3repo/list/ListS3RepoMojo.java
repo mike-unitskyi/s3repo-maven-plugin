@@ -59,6 +59,9 @@ public final class ListS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.pretty", defaultValue = "false")
     private boolean pretty;
 
+    @Parameter(property = "s3repo.filterByMetadata", defaultValue = "true")
+    private boolean filterByMetadata;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         determineAndSetStagingDirectoryIfNeeded();
@@ -70,12 +73,13 @@ public final class ListS3RepoMojo extends AbstractMojo {
         context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
 
         cleanStagingDirectory();
-        downloadRepositoryMetadata(context);
+        maybeDownloadRepositoryMetadata(context);
         List<String> list = internalListRepository(context);
         print(list);
     }
 
     private void print(List<String> list) {
+        getLog().info("[RESULT]");
         if (pretty) {
             for (String one : list) {
                 getLog().info(one);
@@ -85,12 +89,16 @@ public final class ListS3RepoMojo extends AbstractMojo {
         }
     }
 
+    /** Return list of repo-relative file paths. */
     private List<String> internalListRepository(ListContext context) throws MojoExecutionException {
         List<String> list = Lists.newArrayList();
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-        // assert: metadata is downloaded, so we can:
-        Set<String> filesListedInMetadata = Sets.newHashSet(context.getLocalYumRepo().parseFileListFromRepoMetadata());
-        getLog().debug("files listed in metadata = " + filesListedInMetadata);
+        Set<String> filesListedInMetadata = Sets.newHashSet(); // will remain empty if filterByMetadata = false
+        if (filterByMetadata) {
+            // assert: metadata is downloaded, so we can:
+            filesListedInMetadata.addAll(context.getLocalYumRepo().parseFileListFromRepoMetadata());
+            getLog().debug("files listed in metadata = " + filesListedInMetadata);
+        }
         // note: filesListedInMetadata are **repo-relative** file paths.
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
             .withBucketName(s3RepositoryPath.getBucketName());
@@ -113,12 +121,12 @@ public final class ListS3RepoMojo extends AbstractMojo {
                 s3RepositoryPath.hasBucketRelativeFolder()
                     ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
                     : summary.getKey();
-            if (!filesListedInMetadata.contains(asRepoRelativeFile)) {
+            if (filterByMetadata && !filesListedInMetadata.contains(asRepoRelativeFile)) {
                 getLog().debug("Not known to metadata: " + summary.getKey() + " (repo-relative: " + asRepoRelativeFile + ")");
             }
             // Assert: summary.getKey() is a file that exists as a file in the S3 repo AND
             // it is listed in the YUM metadata for the repo.
-            list.add(summary.getKey());
+            list.add(asRepoRelativeFile);
         }
         return list;
     }
@@ -127,7 +135,11 @@ public final class ListS3RepoMojo extends AbstractMojo {
         ExtraFileUtils.createOrCleanDirectory(stagingDirectory);
     }
 
-    private void downloadRepositoryMetadata(ListContext context) throws MojoExecutionException {
+    private void maybeDownloadRepositoryMetadata(ListContext context) throws MojoExecutionException {
+        if (!filterByMetadata) {
+            getLog().info("Will not filter file list using YUM metadata.");
+            return;
+        }
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
             .withBucketName(s3RepositoryPath.getBucketName());
