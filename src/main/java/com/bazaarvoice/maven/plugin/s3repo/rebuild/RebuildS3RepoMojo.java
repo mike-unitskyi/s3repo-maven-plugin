@@ -1,6 +1,7 @@
 package com.bazaarvoice.maven.plugin.s3repo.rebuild;
 
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
@@ -48,10 +49,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter (property = "s3repo.repositoryPath", required = true)
     private String s3RepositoryPath;
 
-    @Parameter(property = "s3repo.accessKey", required = true)
+    @Parameter(property = "s3repo.accessKey")
     private String s3AccessKey;
 
-    @Parameter(property = "s3repo.secretKey", required = true)
+    @Parameter(property = "s3repo.secretKey")
     private String s3SecretKey;
 
     /** Do not try to validate the current repository metadata before recreating the repository. */
@@ -93,7 +94,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         maybeCleanStagingDirectory();
 
         // download entire repository
-        pullEntireRepository(context);
+        downloadEntireRepository(context);
         // perform some checks to ensure repository is as expected if doNotValidate = false
         maybeValidateRepository(context);
         // remove old snapshots if removeOldSnapshots = true
@@ -244,11 +245,15 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     }
 
     private AmazonS3Client createS3Client() {
-        return new AmazonS3Client(new BasicAWSCredentials(s3AccessKey, s3SecretKey));
+        if (s3AccessKey != null || s3SecretKey != null) {
+            return new AmazonS3Client(new BasicAWSCredentials(s3AccessKey, s3SecretKey));
+        } else {
+            return new AmazonS3Client(new DefaultAWSCredentialsProviderChain());
+        }
     }
 
     /** Download the entire repository. (Also adds SNAPSHOT metadata to the provided <code>context</code>.) */
-    private void pullEntireRepository(RebuildContext context) throws MojoExecutionException {
+    private void downloadEntireRepository(RebuildContext context) throws MojoExecutionException {
         getLog().info("Downloading entire repository...");
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
