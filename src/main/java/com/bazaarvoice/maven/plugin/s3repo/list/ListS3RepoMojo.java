@@ -91,7 +91,7 @@ public final class ListS3RepoMojo extends AbstractMojo {
         // assert: metadata is downloaded, so we can:
         Set<String> filesListedInMetadata = Sets.newHashSet(context.getLocalYumRepo().parseFileListFromRepoMetadata());
         getLog().debug("files listed in metadata = " + filesListedInMetadata);
-        // note: filesListedInMetadata are repo-relative file paths.
+        // note: filesListedInMetadata are **repo-relative** file paths.
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
             .withBucketName(s3RepositoryPath.getBucketName());
         String prefix = ""; // capture prefix for debug logging
@@ -109,8 +109,12 @@ public final class ListS3RepoMojo extends AbstractMojo {
                 getLog().debug("Will not list " + summary.getKey() + ", it's a metadata file");
                 continue;
             }
-            if (!filesListedInMetadata.contains(summary.getKey())) {
-                getLog().debug("Not known to metadata: " + summary.getKey());
+            String asRepoRelativeFile =
+                s3RepositoryPath.hasBucketRelativeFolder()
+                    ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
+                    : summary.getKey();
+            if (!filesListedInMetadata.contains(asRepoRelativeFile)) {
+                getLog().debug("Not known to metadata: " + summary.getKey() + " (repo-relative: " + asRepoRelativeFile + ")");
             }
             // Assert: summary.getKey() is a file that exists as a file in the S3 repo AND
             // it is listed in the YUM metadata for the repo.
@@ -138,7 +142,7 @@ public final class ListS3RepoMojo extends AbstractMojo {
                 getLog().debug("Will not list " + summary.getKey() + ", it's a folder");
                 continue;
             }
-            getLog().info("Downloading metadata file, '" + summary.getKey() + "', from S3...");
+            getLog().info("Downloading metadata file '" + summary.getKey() + "' from S3...");
             final S3Object object = context.getS3Session()
                 .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
             try {
