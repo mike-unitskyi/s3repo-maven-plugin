@@ -141,9 +141,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     }
 
     private void maybeUploadRepository(RebuildContext context) throws MojoExecutionException {
+        String logPrefix = "";
         if (doNotUpload) {
             getLog().info("NOTE: Per configuration, we will not perform any remote operations on the S3 repository.");
-            getLog().info("The following logs show what WOULD HAVE HAPPENED:");
+            logPrefix = "SKIPPING: ";
         }
         final S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         final String targetBucket = s3RepositoryPath.getBucketName();
@@ -154,7 +155,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             // relativize path wrt to *stagingDirectory* which represents our *bucket*
             final String bucketKey = localFileToS3BucketKey(toUpload);
-            getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
+            getLog().info(logPrefix + "Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
             if (!doNotUpload) {
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
             }
@@ -164,14 +165,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final String bucketKey = s3RepositoryPath.hasBucketRelativeFolder()
                 ? s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePath
                 : repoRelativePath;
-            getLog().info("Deleting excluded file '" + bucketKey + "' from S3...");
+            getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3...");
             if (!doNotUpload) {
                 context.getS3Session().deleteObject(targetBucket, bucketKey);
             }
         }
         // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)
         for (SnapshotDescription toDelete : context.getSnapshotsToDeleteRemotely()) {
-            getLog().info("Deleting old snapshot '" + toDelete + "' from S3...");
+            getLog().info(logPrefix + "Deleting old snapshot '" + toDelete + "' from S3...");
             if (!doNotUpload) {
                 context.getS3Session().deleteObject(targetBucket, toDelete.getBucketKey());
             }
