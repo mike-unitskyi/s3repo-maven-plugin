@@ -165,7 +165,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final String bucketKey = s3RepositoryPath.hasBucketRelativeFolder()
                 ? s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePath
                 : repoRelativePath;
-            getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3...");
+            getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3 (if it exists)...");
             if (!doNotUpload) {
                 context.getS3Session().deleteObject(targetBucket, bucketKey);
             }
