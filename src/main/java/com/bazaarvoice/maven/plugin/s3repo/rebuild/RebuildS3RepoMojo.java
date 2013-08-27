@@ -292,6 +292,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     /** Download the entire repository. (Also adds SNAPSHOT metadata to the provided <code>context</code>.) */
     private void downloadEntireRepository(RebuildContext context) throws MojoExecutionException {
         getLog().info("Downloading entire repository...");
+        getLog().debug("Excluded files = " + context.getExcludedFiles());
         S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                 .withBucketName(s3RepositoryPath.getBucketName());
@@ -308,7 +309,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 getLog().info("No need to download " + summary.getKey() + ", it's a folder");
                 continue;
             }
-            if (context.getExcludedFiles().contains(toRepoRelativePath(summary, s3RepositoryPath))) {
+            String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
+            getLog().debug("repo relative path = " + asRepoRelativePath);
+            if (context.getExcludedFiles().contains(asRepoRelativePath)) {
                 getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
                 continue;
             }
