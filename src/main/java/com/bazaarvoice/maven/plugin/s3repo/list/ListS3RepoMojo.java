@@ -92,7 +92,8 @@ public final class ListS3RepoMojo extends AbstractMojo {
         Set<String> filesListedInMetadata = Sets.newHashSet(context.getLocalYumRepo().parseFileListFromRepoMetadata());
         getLog().debug("files listed in metadata = " + filesListedInMetadata);
         // note: filesListedInMetadata are repo-relative file paths.
-        ListObjectsRequest listObjectsRequest = new ListObjectsRequest();
+        ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+            .withBucketName(s3RepositoryPath.getBucketName());
         String prefix = ""; // capture prefix for debug logging
         if (s3RepositoryPath.hasBucketRelativeFolder()) {
             prefix = s3RepositoryPath.getBucketRelativeFolder() + "/";
