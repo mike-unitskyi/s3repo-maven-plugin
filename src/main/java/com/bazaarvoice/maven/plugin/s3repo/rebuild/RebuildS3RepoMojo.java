@@ -142,7 +142,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
 
     private void maybeUploadRepository(RebuildContext context) throws MojoExecutionException {
         if (doNotUpload) {
-            getLog().info("Per configuration, not uploading built repository to S3.");
+            getLog().info("NOTE: Per configuration, we will not perform any remote operations on the S3 repository.");
+            getLog().info("The following logs show what WOULD HAVE HAPPENED:");
             return;
         }
         final S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
@@ -155,8 +156,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             // relativize path wrt to *stagingDirectory* which represents our *bucket*
             final String bucketKey = localFileToS3BucketKey(toUpload);
             getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
-            PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, bucketKey, toUpload);
-            s3Session.putObject(putObjectRequest);
+            if (!doNotUpload) {
+                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+            }
         }
         // delete any excluded files remotely.
         for (String repoRelativePath : context.getExcludedFiles()) {
@@ -164,19 +166,25 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 ? s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePath
                 : repoRelativePath;
             getLog().info("Deleting excluded file '" + bucketKey + "' from S3...");
-            context.getS3Session().deleteObject(targetBucket, bucketKey);
+            if (!doNotUpload) {
+                context.getS3Session().deleteObject(targetBucket, bucketKey);
+            }
         }
         // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)
         for (SnapshotDescription toDelete : context.getSnapshotsToDeleteRemotely()) {
             getLog().info("Deleting old snapshot '" + toDelete + "' from S3...");
-            context.getS3Session().deleteObject(targetBucket, toDelete.getBucketKey());
+            if (!doNotUpload) {
+                context.getS3Session().deleteObject(targetBucket, toDelete.getBucketKey());
+            }
         }
         for (RemoteSnapshotRename toRename : context.getSnapshotsToRenameRemotely()) {
             final String sourceBucketKey = toRename.getSource().getBucketKey();
             final String targetBucketKey = toRename.getNewBucketKey();
             getLog().info("Renaming key '" + sourceBucketKey + "' to '" + toRename.getNewBucketKey() + "' in S3...");
-            context.getS3Session().copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
-            context.getS3Session().deleteObject(targetBucket, sourceBucketKey);
+            if (!doNotUpload) {
+                s3Session.copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
+                s3Session.deleteObject(targetBucket, sourceBucketKey);
+            }
         }
     }
 
