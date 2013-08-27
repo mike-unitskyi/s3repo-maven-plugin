@@ -14,6 +14,7 @@ import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
+import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
@@ -80,6 +81,12 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.createrepo", defaultValue = "createrepo")
     private String createrepo;
 
+    /** Comma-delimited **repo-relative** paths to exclude when rebuilding. Example value:
+     *      path/to/awesome-artifact-1.4-SNAPSHOT1.noarch.rpm,path/to/awesome-artifact-1.4.noarch.rpm
+     */
+    @Parameter(property = "s3repo.excludes", defaultValue = "")
+    private String excludes;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
         determineAndSetStagingDirectoryIfNeeded();
@@ -89,6 +96,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         context.setS3Session(createS3Client());
         context.setS3RepositoryPath(parseS3RepositoryPath());
         context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
+        context.setExcludedFiles(parseExcludedFiles());
 
         // always clean staging directory
         maybeCleanStagingDirectory();
@@ -103,6 +111,18 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         rebuildRepo(context);
         // upload repository and delete old snapshots etc. if doNotUpload = false
         maybeUploadRepository(context);
+    }
+
+    private List<String> parseExcludedFiles() {
+        List<String> excludedFiles = Lists.newArrayList();
+        if (!StringUtils.isEmpty(excludes)) {
+            for (String excludedFile : excludes.split(",")) {
+                if (!StringUtils.isEmpty(excludedFile)) {
+                    excludedFiles.add(excludedFile);
+                }
+            }
+        }
+        return excludedFiles;
     }
 
     private void determineAndSetStagingDirectoryIfNeeded() {
@@ -125,7 +145,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             getLog().info("Per configuration, not uploading built repository to S3.");
             return;
         }
-        final String targetBucket = context.getS3RepositoryPath().getBucketName();
+        final S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
+        final String targetBucket = s3RepositoryPath.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
         File directoryToUpload = uploadMetadataOnly
                 ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
@@ -136,6 +157,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
             PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, bucketKey, toUpload);
             s3Session.putObject(putObjectRequest);
+        }
+        // delete any excluded files remotely.
+        for (String repoRelativePath : context.getExcludedFiles()) {
+            final String bucketKey = s3RepositoryPath.hasBucketRelativeFolder()
+                ? s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativePath
+                : repoRelativePath;
+            getLog().info("Deleting excluded file '" + bucketKey + "' from S3...");
+            context.getS3Session().deleteObject(targetBucket, bucketKey);
         }
         // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)
         for (SnapshotDescription toDelete : context.getSnapshotsToDeleteRemotely()) {
@@ -271,6 +300,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 getLog().info("No need to download " + summary.getKey() + ", it's a folder");
                 continue;
             }
+            if (context.getExcludedFiles().contains(toRepoRelativePath(summary, s3RepositoryPath))) {
+                getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
+                continue;
+            }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
             maybeAddSnapshotMetadata(summary, context);
             if (new File(stagingDirectory, summary.getKey()).isFile()) {
@@ -345,6 +378,12 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             return snapshotFileName; // do nothing
         }
         return snapshotFileName.replaceAll("SNAPSHOT\\d+\\.", "SNAPSHOT.");
+    }
+
+    private static String toRepoRelativePath(S3ObjectSummary summary, S3RepositoryPath s3RepositoryPath) {
+        return s3RepositoryPath.hasBucketRelativeFolder()
+            ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
+            : summary.getKey();
     }
 
 }

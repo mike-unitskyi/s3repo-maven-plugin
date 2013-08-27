@@ -6,8 +6,10 @@ import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 final class RebuildContext {
 
@@ -31,6 +33,8 @@ final class RebuildContext {
     private final Map<String, List<SnapshotDescription>> bucketKeyPrefixToSnapshots = new HashMap<String, List<SnapshotDescription>>();
     private final List<SnapshotDescription> snapshotsToDeleteRemotely = new ArrayList<SnapshotDescription>();
     private final List<RemoteSnapshotRename> snapshotsToRenameRemotely = new ArrayList<RemoteSnapshotRename>();
+    /** Repo-relative file paths that we will delete remotely. */
+    private final Set<String> excludedFiles = new HashSet<String>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -83,6 +87,16 @@ final class RebuildContext {
 
     public List<RemoteSnapshotRename> getSnapshotsToRenameRemotely() {
         return snapshotsToRenameRemotely;
+    }
+
+    public void setExcludedFiles(List<String> repoRelativePaths) {
+        excludedFiles.clear();
+        excludedFiles.addAll(repoRelativePaths);
+    }
+
+    /** Repo-relative paths. */
+    public Set<String> getExcludedFiles() {
+        return excludedFiles;
     }
 
 }
