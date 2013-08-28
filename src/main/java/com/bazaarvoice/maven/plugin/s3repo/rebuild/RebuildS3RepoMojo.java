@@ -379,9 +379,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             }
             String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
             getLog().debug("repo relative path = " + asRepoRelativePath);
-            if (enqueueRemoteDeletes && context.getExcludedFiles().contains(asRepoRelativePath)) {
+            if (context.getExcludedFiles().contains(asRepoRelativePath)) {
                 getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
-                context.addExcludedFileToDelete(asRepoRelativePath, s3RepositoryPath);
+                if (enqueueRemoteDeletes) {
+                    context.addExcludedFileToDelete(asRepoRelativePath, s3RepositoryPath);
+                }
                 continue;
             }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
