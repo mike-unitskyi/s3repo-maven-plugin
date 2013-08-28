@@ -10,6 +10,7 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
+import com.bazaarvoice.maven.plugin.s3repo.WellKnowns;
 import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
@@ -55,6 +56,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
      */
     @Parameter (property = "s3repo.targetRepositoryPath", required = false)
     private String s3TargetRepositoryPath;
+
+    /** Whether or not this goal should be allowed to create a new repository if it's needed. */
+    @Parameter(property = "s3repo.allowCreateRepository", defaultValue = "false")
+    private boolean allowCreateRepository;
 
     @Parameter(property = "s3repo.accessKey")
     private String s3AccessKey;
@@ -171,13 +176,16 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             getLog().info("NOTE: Per configuration, we will not perform any remote operations on the S3 repository.");
             logPrefix = "SKIPPING: ";
         }
-        final S3RepositoryPath source = context.getS3RepositoryPath();
-        final S3RepositoryPath target = context.getS3TargetRepositoryPath();
-        final String targetBucket = target.getBucketName();
+        final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
+        final String targetBucket = targetRepository.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
         File directoryToUpload = uploadMetadataOnly
                 ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
                 : stagingDirectory; // the entire staging directory/bucket
+        if (!allowCreateRepository && !context.getLocalYumRepo().isRepoDataExists()) {
+            throw new MojoExecutionException("refusing to create new repo: " + targetRepository +
+                " (use s3repo.allowCreateRepository = true to force)");
+        }
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             // relativize path wrt to *stagingDirectory* which represents our *bucket*
             final String bucketKey = localFileToS3BucketKey(toUpload);
@@ -188,7 +196,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
         // delete any excluded files remotely from the TARGET only.
         for (String repoRelativePath : context.getExcludedFilesToDeleteFromTarget()) {
-            final String bucketKey = toBucketKey(target, repoRelativePath);
+            final String bucketKey = toBucketKey(targetRepository, repoRelativePath);
             getLog().info(logPrefix + "Deleting excluded file '" + bucketKey + "' from S3...");
             if (!doNotUpload) {
                 context.getS3Session().deleteObject(targetBucket, bucketKey);
@@ -334,15 +342,22 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         getLog().debug("Excluded files = " + context.getExcludedFiles());
         // NOTE: we download target repository first just in case both source and target share some files, we
         // want the target repository's files to override. (Download logic does not replace any local files.)
+        // ALSO: we only download metadata files from the target repository (or target and source if they're
+        // the same.)
         getLog().info("Downloading TARGET repository...");
-        internalDownload(context, context.getS3TargetRepositoryPath(), /*enqueueRemoteDeletes=*/true); // target repo
+        internalDownload(context, context.getS3TargetRepositoryPath(),
+            /*downloadMetadata=*/context.sourceAndTargetRepositoryAreSame(),
+            /*enqueueRemoteDeletes=*/true); // target repo
         if (!context.sourceAndTargetRepositoryAreSame()) {
             getLog().info("Downloading SOURCE repository...");
-            internalDownload(context, context.getS3RepositoryPath(), /*enqueueRemoteDeletes=*/false); // source repo
+            internalDownload(context, context.getS3RepositoryPath(),
+                /*downloadMetadata=*/true,
+                /*enqueueRemoteDeletes=*/false); // source repo
         }
     }
 
-    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath, boolean enqueueRemoteDeletes) throws MojoExecutionException {
+    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath,
+                                  boolean downloadMetadata, boolean enqueueRemoteDeletes) throws MojoExecutionException {
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                 .withBucketName(s3RepositoryPath.getBucketName());
         String prefix = ""; // capture prefix for debug logging
@@ -356,6 +371,10 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         for (S3ObjectSummary summary : result) {
             if (summary.getKey().endsWith("/")) {
                 getLog().info("No need to download " + summary.getKey() + ", it's a folder");
+                continue;
+            }
+            if (!downloadMetadata && isMetadataFile(summary, s3RepositoryPath)) {
+                getLog().info("Not downloading metadata file " + summary.getKey());
                 continue;
             }
             String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
@@ -390,6 +409,13 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 }
             }
         }
+    }
+
+    private boolean isMetadataFile(S3ObjectSummary summary, S3RepositoryPath repo) {
+        final String metadataFilePrefix = repo.hasBucketRelativeFolder()
+            ? repo.getBucketRelativeFolder() + "/" + WellKnowns.YUM_REPODATA_FOLDERNAME + "/"
+            : WellKnowns.YUM_REPODATA_FOLDERNAME + "/";
+        return summary.getKey().startsWith(metadataFilePrefix);
     }
 
     private void maybeAddSnapshotMetadata(S3ObjectSummary summary, RebuildContext context) {
