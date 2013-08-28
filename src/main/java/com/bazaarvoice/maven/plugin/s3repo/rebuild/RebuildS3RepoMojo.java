@@ -138,7 +138,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     }
 
     private void determineAndSetTargetRepositoryPathIfNeeded() {
-        if (!StringUtils.isBlank(s3TargetRepositoryPath)) {
+        if (StringUtils.isBlank(s3TargetRepositoryPath)) {
             s3TargetRepositoryPath = s3RepositoryPath;
         }
     }
