@@ -10,7 +10,7 @@
 
     <artifactId>s3repo-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>0.1ENHANCE11-SNAPSHOT</version>
+    <version>0.1ENHANCE12-SNAPSHOT</version>
 
     <name>s3repo-maven-plugin</name>
     <description>Create or update an S3 YUM repository.</description>
