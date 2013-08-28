@@ -15,6 +15,7 @@ final class RebuildContext {
 
     private AmazonS3 s3Session;
     private S3RepositoryPath s3RepositoryPath;
+    private S3RepositoryPath s3TargetRepositoryPath; // may be the same as s3RepositoryPath
     private LocalYumRepoFacade localYumRepo;
     /**
      * Here we keep track of a Map of bucket key *prefixes* to full bucket keys that represent SNAPSHOTS of
@@ -36,7 +37,8 @@ final class RebuildContext {
     /** Repo-relative file paths that are explicitly excluded. */
     private final Set<String> excludedFiles = new HashSet<String>();
     /** Repo-relative file paths that we will delete remotely. */
-    private final Set<String> excludedFilesToDelete = new HashSet<String>();
+    private final Set<String> excludedFilesToDeleteFromSource = new HashSet<String>();
+    private final Set<String> excludedFilesToDeleteFromTarget = new HashSet<String>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -46,12 +48,24 @@ final class RebuildContext {
         this.s3Session = s3Session;
     }
 
+    public boolean sourceAndTargetRepositoryAreSame() {
+        return s3RepositoryPath.equals(s3TargetRepositoryPath);
+    }
+
     public void setS3RepositoryPath(S3RepositoryPath s3RepositoryPath) {
         this.s3RepositoryPath = s3RepositoryPath;
     }
 
     public S3RepositoryPath getS3RepositoryPath() {
         return s3RepositoryPath;
+    }
+
+    public void setS3TargetRepositoryPath(S3RepositoryPath path) {
+        this.s3TargetRepositoryPath = path;
+    }
+
+    public S3RepositoryPath getS3TargetRepositoryPath() {
+        return s3TargetRepositoryPath;
     }
 
     public LocalYumRepoFacade getLocalYumRepo() {
@@ -101,12 +115,21 @@ final class RebuildContext {
         return excludedFiles;
     }
 
-    public void addExcludedFileToDelete(String repoRelativePath) {
-        excludedFilesToDelete.add(repoRelativePath);
+    public void addExcludedFileToDelete(String repoRelativePath, S3RepositoryPath repo) {
+        if (repo.equals(s3RepositoryPath)) {
+            excludedFilesToDeleteFromSource.add(repoRelativePath);
+        } else if (repo.equals(s3TargetRepositoryPath)) {
+            excludedFilesToDeleteFromTarget.add(repoRelativePath);
+        } else {
+            throw new IllegalStateException("repo not source or target: " + repo);
+        }
     }
 
-    public Set<String> getExcludedFilesToDelete() {
-        return excludedFilesToDelete;
+    public Set<String> getExcludedFilesToDeleteFromSource() {
+        return excludedFilesToDeleteFromSource;
     }
 
+    Set<String> getExcludedFilesToDeleteFromTarget() {
+        return excludedFilesToDeleteFromTarget;
+    }
 }

@@ -1,5 +1,7 @@
 package com.bazaarvoice.maven.plugin.s3repo;
 
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang.builder.HashCodeBuilder;
 import org.sonatype.aether.util.StringUtils;
 
 import java.util.ArrayList;
@@ -63,6 +65,21 @@ public final class S3RepositoryPath {
      */
     public String getBucketRelativeFolder() {
         return bucketRelativeFolder;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        return EqualsBuilder.reflectionEquals(this, obj);
+    }
+
+    @Override
+    public int hashCode() {
+        return HashCodeBuilder.reflectionHashCode(this);
+    }
+
+    @Override
+    public String toString() {
+        return "s3://" + bucketName + (hasBucketRelativeFolder() ? "/" + bucketRelativeFolder : "");
     }
 
     /** *Tolerant* path splitter that gets rid of empty parts. */
