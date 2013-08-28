@@ -407,7 +407,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final int ordinal = toOrdinal(fileName.substring(snapshotIndex));
             getLog().debug("Making note of snapshot '" + summary.getKey() + "'; using prefix = " + bucketKeyPrefix);
             // ASSERT: bucketKeyPrefix is *full path* of bucket key up to and excluding the SNAPSHOT string and anything after it.
-            context.addSnapshotDescription(new SnapshotDescription(bucketKeyPrefix, summary.getKey(), ordinal));
+            context.addSnapshotDescription(new SnapshotDescription(summary.getBucketName(), bucketKeyPrefix, summary.getKey(), ordinal));
         }
     }
 
