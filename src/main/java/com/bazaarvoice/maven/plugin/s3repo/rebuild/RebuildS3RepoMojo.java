@@ -315,7 +315,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         // list of files (repo-relative paths)
         List<String> fileList = localYumRepo.parseFileListFromRepoMetadata();
         for (String repoRelativePath : fileList) {
-            if (!localYumRepo.hasFile(repoRelativePath)) {
+            if (!context.getExcludedFiles().contains(repoRelativePath)
+                && !localYumRepo.hasFile(repoRelativePath)) {
+                // repository metadata declared a (non-excluded) file that did not exist.
                 throw new MojoExecutionException("Repository metadata declared file " + repoRelativePath + " but the file did not exist.");
             }
         }
