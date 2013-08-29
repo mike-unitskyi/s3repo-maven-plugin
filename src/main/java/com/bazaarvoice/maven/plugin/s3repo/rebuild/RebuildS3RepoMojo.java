@@ -108,7 +108,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         context.setS3Session(createS3Client());
         context.setS3RepositoryPath(parseS3RepositoryPath(s3RepositoryPath));
         context.setS3TargetRepositoryPath(parseS3RepositoryPath(s3TargetRepositoryPath));
-        context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
+        context.setLocalYumRepo(determineLocalYumRepo());
         context.setExcludedFiles(parseExcludedFiles());
 
         logRepositories(context);
@@ -188,9 +188,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             // relativize path wrt to *stagingDirectory* which represents our *bucket*
-            final String bucketKey = localFileToS3BucketKey(toUpload);
-            getLog().info(logPrefix + "Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + bucketKey + "...");
+            getLog().info(logPrefix + "Uploading " + toUpload.getName() + " to " + targetRepository + "...");
             if (!doNotUpload) {
+                final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
             }
         }
@@ -227,11 +227,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             : repoRelativePath;
     }
 
-    private String localFileToS3BucketKey(File toUpload) throws MojoExecutionException {
+    /** Convert local file in staging directory to bucket key (in target s3 repository). */
+    private String localFileToTargetS3BucketKey(File toUpload, RebuildContext context) throws MojoExecutionException {
         String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
         // replace *other* file separators with S3-style file separators and strip first & last separator
         relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
-        return relativizedPath;
+        return context.getS3TargetRepositoryPath().hasBucketRelativeFolder()
+            ? context.getS3TargetRepositoryPath().getBucketRelativeFolder() + "/" + relativizedPath
+            : relativizedPath;
     }
 
     private void rebuildRepo(RebuildContext context) throws MojoExecutionException {
@@ -284,7 +287,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 + " => " + renameTo.getName() /*note can't relativize non-existent file*/);
         if (latestSnapshotFile.renameTo(renameTo)) {
             // rename was successful -- also ensure that we queue up the snapshot to rename it remotely
-            context.addSnapshotToRename(RemoteSnapshotRename.withNewBucketKey(snapshotDescription, localFileToS3BucketKey(renameTo)));
+            context.addSnapshotToRename(
+                RemoteSnapshotRename.withNewBucketKey(snapshotDescription, localFileToTargetS3BucketKey(renameTo, context)));
         } else {
             getLog().warn("Failed to rename " + latestSnapshotFile.getPath() + " to " + renameTo.getPath());
         }
@@ -324,11 +328,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     }
 
     /** Create a {@link com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade} which will allow us to query and operate on a local (on-disk) yum repository. */
-    private LocalYumRepoFacade determineLocalYumRepo(S3RepositoryPath s3RepositoryPath) {
-        return new LocalYumRepoFacade(
-                s3RepositoryPath.hasBucketRelativeFolder()
-                        ? new File(stagingDirectory, s3RepositoryPath.getBucketRelativeFolder())
-                        : stagingDirectory, createrepo, getLog());
+    private LocalYumRepoFacade determineLocalYumRepo() {
+        return new LocalYumRepoFacade(stagingDirectory, createrepo, getLog());
     }
 
     private AmazonS3Client createS3Client() {
@@ -339,7 +340,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
     }
 
-    /** Download the entire repository. (Also adds SNAPSHOT metadata to the provided <code>context</code>.) */
+    /** Download the entire repository into the staging area. The paths for the files downloaded into the staging area
+     * are <em>repo-relative</em> paths. (Also adds SNAPSHOT metadata to the provided <code>context</code>.) */
     private void downloadRepositories(RebuildContext context) throws MojoExecutionException {
         getLog().debug("Excluded files = " + context.getExcludedFiles());
         // NOTE: we download target repository first just in case both source and target share some files, we
@@ -380,7 +382,6 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 continue;
             }
             String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
-            getLog().debug("repo relative path = " + asRepoRelativePath);
             if (context.getExcludedFiles().contains(asRepoRelativePath)) {
                 getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
                 if (enqueueRemoteDeletes) {
@@ -390,17 +391,18 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
             maybeAddSnapshotMetadata(summary, context);
-            if (new File(stagingDirectory, summary.getKey()).isFile()) {
+            if (new File(stagingDirectory, asRepoRelativePath).isFile()) {
                 // file exists (likely due to doNotPreClean = true); do not download
                 getLog().info("Skipping download of '" + summary.getKey() + "' from S3 as file already exists...");
             } else { // file doesn't yet exist
-                getLog().info("Downloading '" + summary.getKey() + "' from S3...");
                 final S3Object object = context.getS3Session()
                         .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
                 try {
                     File targetFile =
-                            new File(stagingDirectory, /*assume object key is bucket-relative path to filename with extension*/summary.getKey());
+                        new File(stagingDirectory, asRepoRelativePath);
                     Files.createParentDirs(targetFile);
+                    getLog().info("Downloading: "
+                        + s3RepositoryPath + "/" + toRepoRelativePath(summary, s3RepositoryPath) + " => " + targetFile);
                     FileUtils.copyStreamToFile(new InputStreamFacade() {
                         @Override
                         public InputStream getInputStream()
