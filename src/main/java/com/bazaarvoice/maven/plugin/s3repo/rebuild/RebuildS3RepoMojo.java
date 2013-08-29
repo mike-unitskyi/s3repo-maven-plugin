@@ -373,17 +373,20 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + s3RepositoryPath.getBucketRelativeFolder() + "/" + "'...");
         for (S3ObjectSummary summary : result) {
+            final String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
             if (summary.getKey().endsWith("/")) {
-                getLog().info("No need to download " + summary.getKey() + ", it's a folder");
+                getLog().info("Downloading: "
+                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; it's a folder)");
                 continue;
             }
             if (!downloadMetadata && isMetadataFile(summary, s3RepositoryPath)) {
-                getLog().info("Not downloading metadata file " + summary.getKey());
+                getLog().info("Downloading: "
+                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (metadata file in source repo; will not download)");
                 continue;
             }
-            String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
             if (context.getExcludedFiles().contains(asRepoRelativePath)) {
-                getLog().info("No need to download " + summary.getKey() + ", it's explicitly excluded (and will be removed from S3)");
+                getLog().info("Downloading: "
+                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (explicitly excluded; will be removed from S3)");
                 if (enqueueRemoteDeletes) {
                     context.addExcludedFileToDelete(asRepoRelativePath, s3RepositoryPath);
                 }
@@ -393,16 +396,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             maybeAddSnapshotMetadata(summary, context);
             if (new File(stagingDirectory, asRepoRelativePath).isFile()) {
                 // file exists (likely due to doNotPreClean = true); do not download
-                getLog().info("Skipping download of '" + summary.getKey() + "' from S3 as file already exists...");
+                getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; already downloaded/exists)");
             } else { // file doesn't yet exist
                 final S3Object object = context.getS3Session()
                         .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
                 try {
-                    File targetFile =
-                        new File(stagingDirectory, asRepoRelativePath);
+                    File targetFile = new File(stagingDirectory, asRepoRelativePath);
                     Files.createParentDirs(targetFile);
-                    getLog().info("Downloading: "
-                        + s3RepositoryPath + "/" + toRepoRelativePath(summary, s3RepositoryPath) + " => " + targetFile);
+                    getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => " + targetFile);
                     FileUtils.copyStreamToFile(new InputStreamFacade() {
                         @Override
                         public InputStream getInputStream()
