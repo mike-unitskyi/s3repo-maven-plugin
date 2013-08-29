@@ -173,7 +173,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private void maybeUploadRepository(RebuildContext context) throws MojoExecutionException {
         String logPrefix = "";
         if (doNotUpload) {
-            getLog().info("Per configuration, we will NOTE perform any remote operations on the S3 repository.");
+            getLog().info("Per configuration, we will NOT perform any remote operations on the S3 repository.");
             logPrefix = "SKIPPING: ";
         }
         final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
@@ -188,7 +188,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
-            getLog().info("Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
+            getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
             if (!doNotUpload) {
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
             }
@@ -212,7 +212,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         for (RemoteSnapshotRename toRename : context.getSnapshotsToRenameRemotely()) {
             final String sourceBucketKey = toRename.getSource().getBucketKey();
             final String targetBucketKey = toRename.getNewBucketKey();
-            getLog().info("Renaming key '" + sourceBucketKey + "' to '" + toRename.getNewBucketKey() + "' in S3...");
+            getLog().info(logPrefix + "Renaming key '" + sourceBucketKey + "' to '" + toRename.getNewBucketKey() + "' in S3...");
             if (!doNotUpload) {
                 s3Session.copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
                 s3Session.deleteObject(targetBucket, sourceBucketKey);
