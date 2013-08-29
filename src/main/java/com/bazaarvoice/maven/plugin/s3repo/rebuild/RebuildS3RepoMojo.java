@@ -348,17 +348,15 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         // ALSO: we only download metadata files from the target repository (or target and source if they're
         // the same.)
         getLog().info("Downloading TARGET repository...");
-        internalDownload(context, context.getS3TargetRepositoryPath(),
-            /*downloadMetadata=*/true, /*enqueueRemoteDeletes=*/true); // target repo
+        internalDownload(context, context.getS3TargetRepositoryPath(), /*enqueueRemoteDeletes=*/true); // target repo
         if (!context.sourceAndTargetRepositoryAreSame()) {
             getLog().info("Downloading SOURCE repository...");
-            internalDownload(context, context.getS3RepositoryPath(),
-                /*downloadMetadata=*/false, /*enqueueRemoteDeletes=*/false); // source repo
+            internalDownload(context, context.getS3RepositoryPath(),/*enqueueRemoteDeletes=*/false); // source repo
         }
     }
 
-    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath,
-                                  boolean downloadMetadata, boolean enqueueRemoteDeletes) throws MojoExecutionException {
+    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath, boolean enqueueRemoteDeletes)
+            throws MojoExecutionException {
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                 .withBucketName(s3RepositoryPath.getBucketName());
         String prefix = ""; // capture prefix for debug logging
@@ -376,9 +374,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                     + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; it's a folder)");
                 continue;
             }
-            if (!downloadMetadata && isMetadataFile(summary, s3RepositoryPath)) {
+            if (doNotValidate && isMetadataFile(summary, s3RepositoryPath)) {
                 getLog().info("Downloading: "
-                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (metadata file in source repo; will not download)");
+                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (metadata file; will not download)");
                 continue;
             }
             if (context.getExcludedFiles().contains(asRepoRelativePath)) {
