@@ -78,7 +78,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
     private boolean doNotUpload;
 
-    /** Only upload the new repo metadata. */
+    /** Only upload the new repo metadata. BUT we will ALWAYS upload files from the source repository if the source and
+     * target repositories are different. */
     @Parameter(property = "s3repo.uploadMetadataOnly", defaultValue = "true")
     private boolean uploadMetadataOnly;
 
@@ -179,7 +180,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
         final String targetBucket = targetRepository.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
-        File directoryToUpload = uploadMetadataOnly
+        File directoryToUpload = (uploadMetadataOnly && context.sourceAndTargetRepositoryAreSame())
                 ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
                 : stagingDirectory; // the entire staging directory/bucket
         if (!allowCreateRepository && !context.getLocalYumRepo().isRepoDataExists()) {
