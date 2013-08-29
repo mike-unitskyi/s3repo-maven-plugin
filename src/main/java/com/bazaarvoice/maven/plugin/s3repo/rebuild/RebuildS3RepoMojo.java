@@ -173,7 +173,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private void maybeUploadRepository(RebuildContext context) throws MojoExecutionException {
         String logPrefix = "";
         if (doNotUpload) {
-            getLog().info("NOTE: Per configuration, we will not perform any remote operations on the S3 repository.");
+            getLog().info("Per configuration, we will NOTE perform any remote operations on the S3 repository.");
             logPrefix = "SKIPPING: ";
         }
         final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
@@ -187,10 +187,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 " (use s3repo.allowCreateRepository = true to force)");
         }
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
-            // relativize path wrt to *stagingDirectory* which represents our *bucket*
-            getLog().info(logPrefix + "Uploading " + toUpload.getName() + " to " + targetRepository + "...");
+            final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
+            getLog().info("Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
             if (!doNotUpload) {
-                final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
             }
         }
@@ -350,13 +349,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         // the same.)
         getLog().info("Downloading TARGET repository...");
         internalDownload(context, context.getS3TargetRepositoryPath(),
-            /*downloadMetadata=*/context.sourceAndTargetRepositoryAreSame(),
-            /*enqueueRemoteDeletes=*/true); // target repo
+            /*downloadMetadata=*/true, /*enqueueRemoteDeletes=*/true); // target repo
         if (!context.sourceAndTargetRepositoryAreSame()) {
             getLog().info("Downloading SOURCE repository...");
             internalDownload(context, context.getS3RepositoryPath(),
-                /*downloadMetadata=*/true,
-                /*enqueueRemoteDeletes=*/false); // source repo
+                /*downloadMetadata=*/false, /*enqueueRemoteDeletes=*/false); // source repo
         }
     }
 
@@ -373,7 +370,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + s3RepositoryPath.getBucketRelativeFolder() + "/" + "'...");
         for (S3ObjectSummary summary : result) {
-            final String asRepoRelativePath = toRepoRelativePath(summary, s3RepositoryPath);
+            final String asRepoRelativePath = S3Utils.toRepoRelativePath(summary, s3RepositoryPath);
             if (summary.getKey().endsWith("/")) {
                 getLog().info("Downloading: "
                     + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; it's a folder)");
@@ -467,12 +464,6 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             return snapshotFileName; // do nothing
         }
         return snapshotFileName.replaceAll("SNAPSHOT\\d+\\.", "SNAPSHOT.");
-    }
-
-    private static String toRepoRelativePath(S3ObjectSummary summary, S3RepositoryPath s3RepositoryPath) {
-        return s3RepositoryPath.hasBucketRelativeFolder()
-            ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
-            : summary.getKey();
     }
 
 }

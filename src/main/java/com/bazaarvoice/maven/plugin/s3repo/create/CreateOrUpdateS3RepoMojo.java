@@ -102,7 +102,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         // parse s3 repository path and set bucketAndFolder field
         context.setS3Session(createS3Client());
         context.setS3RepositoryPath(parseS3RepositoryPath());
-        context.setLocalYumRepo(determineLocalYumRepo(context.getS3RepositoryPath()));
+        context.setLocalYumRepo(determineLocalYumRepo());
 
         // always clean the staging directory -- it never makes sense to start with existing staging directory
         ExtraFileUtils.createOrCleanDirectory(stagingDirectory);
@@ -126,29 +126,36 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     }
 
     /** Create a {@link LocalYumRepoFacade} which will allow us to query and operate on a local (on-disk) yum repository. */
-    private LocalYumRepoFacade determineLocalYumRepo(S3RepositoryPath s3RepositoryPath) {
-        return new LocalYumRepoFacade(
-                s3RepositoryPath.hasBucketRelativeFolder()
-                    ? new File(stagingDirectory, s3RepositoryPath.getBucketRelativeFolder())
-                    : stagingDirectory, createrepo, getLog());
+    private LocalYumRepoFacade determineLocalYumRepo() {
+        return new LocalYumRepoFacade(stagingDirectory, createrepo, getLog());
     }
 
     private void maybeUploadRepositoryUpdate(CreateOrUpdateContext context) throws MojoExecutionException {
+        String logPrefix = "";
         if (doNotUpload) {
-            getLog().info("Per configuration, not uploading to S3.");
-            return;
+            getLog().info("Per configuration, we will NOTE perform any remote operations on the S3 repository.");
+            logPrefix = "SKIPPING: ";
         }
-        final String targetBucket = context.getS3RepositoryPath().getBucketName();
+        final S3RepositoryPath targetRepository = context.getS3RepositoryPath();
+        final String targetBucket = targetRepository.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
         for (File toUpload : ExtraIOUtils.listAllFiles(stagingDirectory)) {
-            String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
-            // replace *other* file separators with S3-style file separators and strip first & last separator
-            relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
-            String key = relativizedPath;
-            getLog().info("Uploading " + toUpload.getName() + " to s3://" + targetBucket + "/" + key + "...");
-            PutObjectRequest putObjectRequest = new PutObjectRequest(targetBucket, key, toUpload);
-            s3Session.putObject(putObjectRequest);
+            String bucketKey = localFileToTargetS3BucketKey(toUpload, targetRepository);
+            getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
+            if (!doNotUpload) {
+                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+            }
         }
+    }
+
+    /** Convert local file in staging directory to bucket key (in target s3 repository). */
+    private String localFileToTargetS3BucketKey(File toUpload, S3RepositoryPath repo) throws MojoExecutionException {
+        String relativizedPath = ExtraIOUtils.relativize(stagingDirectory, toUpload);
+        // replace *other* file separators with S3-style file separators and strip first & last separator
+        relativizedPath = relativizedPath.replaceAll("\\\\", "/").replaceAll("^/", "").replaceAll("/$", "");
+        return repo.hasBucketRelativeFolder()
+            ? repo.getBucketRelativeFolder() + "/" + relativizedPath
+            : relativizedPath;
     }
 
     private void cleanupSynthesizedFiles(CreateOrUpdateContext context) throws MojoExecutionException {
@@ -196,11 +203,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
             }
             // for each file in our repoRelativeFilePathList, touch/synthesize the file
             for (String repoRelativeFilePath : repoRelativeFilePathList) {
-                String bucketRelativeFilePath = repoRelativeFilePath;
-                if (s3RepositoryPath.hasBucketRelativeFolder()) {
-                    bucketRelativeFilePath = s3RepositoryPath.getBucketRelativeFolder() + "/" + repoRelativeFilePath;
-                }
-                File file = new File(stagingDirectory, bucketRelativeFilePath);
+                File file = new File(stagingDirectory, repoRelativeFilePath);
                 if (file.exists()) {
                     throw new MojoExecutionException("Repo already has this file: " + file.getPath());
                 }
@@ -251,7 +254,6 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     private void copyArtifactItems(CreateOrUpdateContext context, List<ArtifactItem> resolvedArtifactItems) throws MojoExecutionException {
         for (ArtifactItem artifactItem : resolvedArtifactItems) {
             try {
-                S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
                 // if a targetBaseName isn't specified, use <artifactID>-<version> as extensionless filename
                 final String baseFileName = artifactItem.hasTargetBaseName()
                             ? artifactItem.getTargetBaseName()
@@ -266,14 +268,9 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                     }
                     // create filename from dependency's file name but using pom-configured target subfolder and target extension
                     String targetFileName = baseFileNameToUse + "." + artifactItem.getTargetExtension();
-                    String bucketRelativeFolderPath =
-                        joinExcludeEmpties('/', s3RepositoryPath.getBucketRelativeFolder(), artifactItem.getTargetSubfolder());
-                    final File targetDirectory;
-                    if (StringUtils.isEmpty(bucketRelativeFolderPath)) {
-                        targetDirectory = stagingDirectory;
-                    } else {
-                        targetDirectory = new File(stagingDirectory, bucketRelativeFolderPath);
-                    }
+                    final File targetDirectory = !StringUtils.isEmpty(artifactItem.getTargetSubfolder())
+                            ? new File(stagingDirectory, artifactItem.getTargetSubfolder())
+                            : stagingDirectory;
                     targetFile = new File(targetDirectory, targetFileName);
                     if (targetFile.exists()) {
                         if (!artifactItem.isSnapshot() || !autoIncrementSnapshotArtifacts) {
@@ -344,17 +341,17 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         getLog().debug("Found " + result.size() + " objects in bucket '" + s3RepositoryPath.getBucketName()
                 + "' with prefix '" + bucketRelativeMetadataFolderPath + "'...");
         for (S3ObjectSummary summary : result) {
+            final String asRepoRelativePath = S3Utils.toRepoRelativePath(summary, s3RepositoryPath);
             if (summary.getKey().endsWith("/")) {
-                getLog().info("no need to download " + summary.getKey() + ", it's a folder");
+                getLog().info("Downloading: "
+                    + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; it's a folder)");
                 continue;
             }
-            getLog().info("Downloading " + summary.getKey() + " from S3...");
             final S3Object object = context.getS3Session()
                     .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
             try {
-                File targetFile =
-                    new File(stagingDirectory,
-                        /*assume object key is *bucket-relative* path to the filename with extension*/summary.getKey());
+                File targetFile = new File(stagingDirectory, asRepoRelativePath);
+                getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => " + targetFile);
                 Files.createParentDirs(targetFile);
                 FileUtils.copyStreamToFile(new InputStreamFacade() {
                     @Override
@@ -374,18 +371,6 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         } else {
             context.getLocalYumRepo().createRepo();
         }
-    }
-
-    private static String joinExcludeEmpties(char delimiter, String... values) {
-        StringBuilder buf = new StringBuilder();
-        String separator = "";
-        for (String value : values) {
-            if (!StringUtils.isEmpty(value)) {
-                buf.append(separator).append(value);
-                separator = String.valueOf(delimiter);
-            }
-        }
-        return buf.toString();
     }
 
 }

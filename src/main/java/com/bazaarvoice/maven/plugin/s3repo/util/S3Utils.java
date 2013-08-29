@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,12 @@ import java.util.List;
 public final class S3Utils {
 
     private S3Utils() {}
+
+    public static String toRepoRelativePath(S3ObjectSummary summary, S3RepositoryPath s3RepositoryPath) {
+        return s3RepositoryPath.hasBucketRelativeFolder()
+            ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
+            : summary.getKey();
+    }
 
     /** S3 may paginate object lists; this will walk through all pages and produce full result list. */
     public static List<S3ObjectSummary> listAllObjects(AmazonS3 s3Session, ListObjectsRequest request) {
