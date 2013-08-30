@@ -268,15 +268,16 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         for (String repoRelativePath : context.getExcludedFiles()) {
             final File deleteMe = new File(stagingDirectory, repoRelativePath);
             if (deleteMe.isFile()) {
+                if (!doNotPreClean) {
+                    // assert: an excluded file exists but we pre-cleaned.
+                    // pathological: if we ever fail for this reason it means we have faulty logic in this code
+                    // i.e., we pre-cleaned our staging directory but we still managed to have one of our excluded
+                    // files downloaded into our local staging repo.
+                    throw new IllegalStateException("unexpected file in staging repo: " + deleteMe);
+                }
                 if (!deleteMe.delete()) {
                     throw new MojoExecutionException("failed to delete: " + deleteMe);
                 }
-            } else if (!doNotPreClean) {
-                // assert: an excluded file exists but we pre-cleaned.
-                // pathological: if we ever fail for this reason it means we have faulty logic in this code
-                // i.e., we pre-cleaned our staging directory but we still managed to have one of our excluded
-                // files downloaded into our local staging repo.
-                throw new IllegalStateException("unexpected file in staging repo: " + deleteMe);
             }
         }
     }
