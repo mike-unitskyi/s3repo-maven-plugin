@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
 import com.bazaarvoice.maven.plugin.s3repo.support.LocalYumRepoFacade;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +40,8 @@ final class RebuildContext {
     /** Repo-relative file paths that we will delete remotely. */
     private final Set<String> excludedFilesToDeleteFromSource = new HashSet<String>();
     private final Set<String> excludedFilesToDeleteFromTarget = new HashSet<String>();
+    /** Files that exist in target. */
+    private final Set<File> filesFromTargetRepo = new HashSet<File>();
 
     public AmazonS3 getS3Session() {
         return s3Session;
@@ -129,7 +132,16 @@ final class RebuildContext {
         return excludedFilesToDeleteFromSource;
     }
 
-    Set<String> getExcludedFilesToDeleteFromTarget() {
+    public Set<String> getExcludedFilesToDeleteFromTarget() {
         return excludedFilesToDeleteFromTarget;
     }
+
+    public void addFileFromTargetRepo(File targetFile) {
+        this.filesFromTargetRepo.add(targetFile);
+    }
+
+    public Set<File> getFilesFromTargetRepo() {
+        return filesFromTargetRepo;
+    }
+
 }

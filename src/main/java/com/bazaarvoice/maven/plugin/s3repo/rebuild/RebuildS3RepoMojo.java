@@ -180,7 +180,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
         final String targetBucket = targetRepository.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
-        File directoryToUpload = (uploadMetadataOnly && context.sourceAndTargetRepositoryAreSame())
+        File directoryToUpload = uploadMetadataOnly
                 ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
                 : stagingDirectory; // the entire staging directory/bucket
         if (!allowCreateRepository && !context.getLocalYumRepo().isRepoDataExists()) {
@@ -192,6 +192,20 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
             if (!doNotUpload) {
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+            }
+        }
+        if (uploadMetadataOnly && !context.sourceAndTargetRepositoryAreSame()) {
+            // we just uploaded metadata but there are files in the source repository
+            // that don't exist in the target, so we upload those here.
+            for (File toUpload : ExtraIOUtils.listAllFiles(stagingDirectory)) {
+                if (context.getFilesFromTargetRepo().contains(toUpload)) {
+                    // upload if it's not already in the target repo.
+                    final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
+                    getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
+                    if (!doNotUpload) {
+                        s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+                    }
+                }
             }
         }
         // delete any excluded files remotely from the TARGET only.
@@ -349,14 +363,14 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         // ALSO: we only download metadata files from the target repository (or target and source if they're
         // the same.)
         getLog().info("Downloading TARGET repository...");
-        internalDownload(context, context.getS3TargetRepositoryPath(), /*enqueueRemoteDeletes=*/true); // target repo
+        internalDownload(context, context.getS3TargetRepositoryPath(), /*isTargetRepo*/true); // target repo
         if (!context.sourceAndTargetRepositoryAreSame()) {
             getLog().info("Downloading SOURCE repository...");
-            internalDownload(context, context.getS3RepositoryPath(),/*enqueueRemoteDeletes=*/false); // source repo
+            internalDownload(context, context.getS3RepositoryPath(),/*isTargetRepo=*/false); // source repo
         }
     }
 
-    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath, boolean enqueueRemoteDeletes)
+    private void internalDownload(RebuildContext context, S3RepositoryPath s3RepositoryPath, boolean isTargetRepo)
             throws MojoExecutionException {
         ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
                 .withBucketName(s3RepositoryPath.getBucketName());
@@ -383,7 +397,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             if (context.getExcludedFiles().contains(asRepoRelativePath)) {
                 getLog().info("Downloading: "
                     + s3RepositoryPath + "/" + asRepoRelativePath + " => (explicitly excluded; will be removed from S3)");
-                if (enqueueRemoteDeletes) {
+                if (isTargetRepo) {
+                    // enqueue file for deletion only if it is in the target repo. (we never want to do remote mutation
+                    // operations on the source repo if it is different than the target repo)
                     context.addExcludedFileToDelete(asRepoRelativePath, s3RepositoryPath);
                 }
                 continue;
@@ -407,6 +423,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                             return object.getObjectContent();
                         }
                     }, targetFile);
+                    if (isTargetRepo) {
+                        context.addFileFromTargetRepo(targetFile);
+                    }
                 } catch (IOException e) {
                     throw new MojoExecutionException("failed to download object from s3: " + summary.getKey(), e);
                 }
