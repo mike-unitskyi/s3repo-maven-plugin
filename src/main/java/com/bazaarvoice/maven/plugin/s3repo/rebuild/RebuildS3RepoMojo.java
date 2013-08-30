@@ -123,6 +123,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         maybeValidateRepository(context);
         // remove old snapshots if removeOldSnapshots = true
         maybeRemoveOldSnapshots(context);
+        // we don't download excluded files but they may already exist if doNotPreClean = true
+        deleteExcludes(context);
         // rebuild -- rerun createrepo
         rebuildRepo(context);
         // upload repository and delete old snapshots etc. if doNotUpload = false
@@ -254,6 +256,23 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private void rebuildRepo(RebuildContext context) throws MojoExecutionException {
         getLog().info("Rebuilding repo...");
         context.getLocalYumRepo().createRepo();
+    }
+
+    private void deleteExcludes(RebuildContext context) throws MojoExecutionException {
+        for (String repoRelativePath : context.getExcludedFiles()) {
+            final File deleteMe = new File(stagingDirectory, repoRelativePath);
+            if (deleteMe.isFile()) {
+                if (!deleteMe.delete()) {
+                    throw new MojoExecutionException("failed to delete: " + deleteMe);
+                }
+            } else if (!doNotPreClean) {
+                // assert: an excluded file exists but we pre-cleaned.
+                // pathological: if we ever fail for this reason it means we have faulty logic in this code
+                // i.e., we pre-cleaned our staging directory but we still managed to have one of our excluded
+                // files downloaded into our local staging repo.
+                throw new IllegalStateException("unexpected file in staging repo: " + deleteMe);
+            }
+        }
     }
 
     /** Delete any old snapshots locally so that later, when we rebuild the repository, these old snapshots
