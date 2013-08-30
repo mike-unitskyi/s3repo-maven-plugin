@@ -1,19 +1,19 @@
 s3repo-maven-plugin
 ===================
 
-The latest version is **1.13**.
+The latest version is **2.0.0**.
 
-Plugin allowing you to add arbitrary dependencies to an S3 Yum Repository.  Also has a goal to support rebuilding S3 YUM
-repositories.
+Plugin allowing you to add arbitrary dependencies to a YUM repository hosted in S3. Additional goals allow you to
+rebuild, relocate, and list S3-based YUM repositories.
 
-Note that using S3 as a YUM repository is possible via the YUM plugin yum-s3-plugin
-(https://github.com/jbraeuer/yum-s3-plugin).
+Note that using S3 as a YUM repository is possible via the YUM plugin [yum-s3-plugin](https://github.com/jbraeuer/yum-s3-plugin).
 
 Goals
 =====
 
 * __create-update__ - Creates or updates an S3 YUM repository.
-* __rebuild-repo__ - Rebuilds an existing S3 YUM repository, optionally eliminating old SNAPSHOT artifacts.
+* __rebuild-repo__ - Rebuilds (and, optionally, _relocates_) an existing S3 YUM repository.
+* __list-repo__ - List the contents of an S3 YUM repository.
 
 create-update: Usage Example
 ============================
@@ -23,7 +23,7 @@ Here is a common configuration:
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.13</version> <!-- use latest version instead -->
+        <version>${VERSION}</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>package</phase>
@@ -50,9 +50,9 @@ Here is a common configuration:
 create-update: Special Notes
 ============================
 
-* If one of your declared artifact items *already* exists in your S3 YUM repository, the goal will fail unless the declared
+* If one of your declared artifact items *already* exists in the S3 YUM repository, the goal will fail unless the declared
   artifact item is a *SNAPSHOT* dependency and the "autoIncrementSnapshotArtifacts" configuration property is true (this
-is the default value/behavior).
+  is the default value/behavior).
 * You can use "-Ds3repo.allowCreateRepository=true" the first time you run the plugin to initialize a new repository; subsequent
   runs for a project can leave this value at its default (false) for extra safety.
 
@@ -64,7 +64,7 @@ Here is a full configuration demonstrating all possible configuration options. S
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
         <artifactId>s3repo-maven-plugin</artifactId>
-        <version>1.13</version> <!-- use latest version instead -->
+        <version>${VERSION}</version> <!-- use latest version instead -->
         <executions>
             <execution>
                 <phase>deploy</phase> <!-- phase is optional; deploy is the default -->
@@ -148,14 +148,14 @@ NOTE: This goal does not require a project to run; *you can run it from any dire
 
 A simple example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF
 
 If you want to clean up old snapshots, use:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -163,7 +163,7 @@ If you want to clean up old snapshots, use:
 
 If you want to use a non-temp staging directory:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -171,7 +171,7 @@ If you want to use a non-temp staging directory:
 
 A verbose example:
 
-    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:1.13:rebuild-repo \
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
@@ -180,11 +180,41 @@ A verbose example:
         -Ds3repo.doNotUpload=true \
         -Ds3repo.createrepo=/usr/bin/createrepo
 
-Use "s3repo.doNotUpload" to rebuild the repository locally but not upload it. Use "s3repo.doNotValidate"
+You can use "s3repo.doNotUpload" to rebuild the repository locally but not upload it. Use "s3repo.doNotValidate"
 to rebuild the repository but not fail if existing repo metadata is missing or corrupt.
+
+Relocating a Repository
+=======================
+
+Use "s3repo.targetRepositoryPath" to specify a target repository that differs from the source repository. Note that this will
+add only those items in the source repo that do not already exist in the target repo.
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
+        -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
+        -Ds3repo.targetRepositoryPath=s3://other-artifacts/new-yum-repo \
+        -Ds3repo.accessKey=${ACCESS} -Ds3repo.secretKey=${SECRET}
+
+Listing a Repository
+====================
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:list-repo \
+        -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
+        -Ds3repo.accessKey=${ACCESS} -Ds3repo.secretKey=${SECRET}
+
+This will produce a comma-delimted list that can edited to be used in the "s3repo.excludes" configuration property when
+executing the rebuild-repo goal.
+
+A verbose example:
+
+    $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:list-repo \
+        -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
+        -Ds3repo.pretty=true \
+        -Ds3repo.filterByMetadata=false \
+        -Ds3repo.accessKey=${ACCESS} -Ds3repo.secretKey=${SECRET}
+
+"s3repo.filterByMetadata" is set to true by default. By making it false, all of the files in the repo will be listed,
+not just those listed in the YUM metadata (typically this is not what is desired.)
 
 Wishlist
 ========
-
 * upload RPM to repository without needing a Maven project/POM (i.e., in the Mojo, requiresProject = false)
-* purge any explicit set of RPMs from the repository (again, without needing a Maven project)
