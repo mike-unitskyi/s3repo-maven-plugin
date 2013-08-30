@@ -14,9 +14,13 @@ public final class S3Utils {
     private S3Utils() {}
 
     public static String toRepoRelativePath(S3ObjectSummary summary, S3RepositoryPath s3RepositoryPath) {
+        return bucketKeyToRepoRelativePath(s3RepositoryPath, summary.getKey());
+    }
+
+    public static String bucketKeyToRepoRelativePath(S3RepositoryPath s3RepositoryPath, String bucketKey) {
         return s3RepositoryPath.hasBucketRelativeFolder()
-            ? summary.getKey().replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
-            : summary.getKey();
+            ? bucketKey.replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
+            : bucketKey;
     }
 
     /** S3 may paginate object lists; this will walk through all pages and produce full result list. */
