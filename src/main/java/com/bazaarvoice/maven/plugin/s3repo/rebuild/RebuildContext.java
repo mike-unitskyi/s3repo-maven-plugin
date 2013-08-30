@@ -119,12 +119,14 @@ final class RebuildContext {
     }
 
     public void addExcludedFileToDelete(String repoRelativePath, S3RepositoryPath repo) {
+        if (!repo.equals(s3RepositoryPath) && !repo.equals(s3TargetRepositoryPath)) {
+            throw new IllegalStateException("repo not source or target: " + repo);
+        }
         if (repo.equals(s3RepositoryPath)) {
             excludedFilesToDeleteFromSource.add(repoRelativePath);
-        } else if (repo.equals(s3TargetRepositoryPath)) {
+        }
+        if (repo.equals(s3TargetRepositoryPath)) {
             excludedFilesToDeleteFromTarget.add(repoRelativePath);
-        } else {
-            throw new IllegalStateException("repo not source or target: " + repo);
         }
     }
 
