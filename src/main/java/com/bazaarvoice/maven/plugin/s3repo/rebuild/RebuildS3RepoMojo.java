@@ -198,7 +198,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             // we just uploaded metadata but there are files in the source repository
             // that don't exist in the target, so we upload those here.
             for (File toUpload : ExtraIOUtils.listAllFiles(stagingDirectory)) {
-                if (context.getFilesFromTargetRepo().contains(toUpload)) {
+                if (!context.getFilesFromTargetRepo().contains(toUpload)) {
                     // upload if it's not already in the target repo.
                     final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
                     getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
