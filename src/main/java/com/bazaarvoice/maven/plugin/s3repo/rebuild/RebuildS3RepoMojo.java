@@ -235,9 +235,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final String targetBucketKey = toRename.getNewBucketKey();
             getLog().info(logPrefix + "Renaming: "
                 + "s3://" + targetRepository.getBucketName() + "/" + sourceBucketKey
-                + " => "
-                + "s3://" + targetRepository.getBucketName() + "/" + targetBucketKey);
-            getLog().info(logPrefix + "Renaming key '" + sourceBucketKey + "' to '" + toRename.getNewBucketKey() + "' in S3...");
+                + " => s3://" + targetRepository.getBucketName() + "/" + targetBucketKey);
             if (!doNotUpload) {
                 s3Session.copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
                 s3Session.deleteObject(targetBucket, sourceBucketKey);
