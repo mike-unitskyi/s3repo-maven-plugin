@@ -1,16 +1,16 @@
 s3repo-maven-plugin
 ===================
 
-The latest version is **2.0.0**.
-
-Plugin allowing you to add arbitrary dependencies to a YUM repository hosted in S3. Additional goals allow you to
+This Maven plugin supports releasing and deploying to YUM repositories hosted in S3. Additional goals allow you to
 rebuild, relocate, and list S3-based YUM repositories.
 
-Note that using S3 as a YUM repository is possible via the YUM plugin [yum-s3-plugin](https://github.com/jbraeuer/yum-s3-plugin).
+The latest version of this plugin is **2.0.0**.
+
+Note that using S3 as a YUM repository is possible via the YUM plugin
+[yum-s3-plugin](https://github.com/jbraeuer/yum-s3-plugin).
 
 Goals
 =====
-
 * __create-update__ - Creates or updates an S3 YUM repository.
 * __rebuild-repo__ - Rebuilds (and, optionally, _relocates_) an existing S3 YUM repository.
 * __list-repo__ - List the contents of an S3 YUM repository.
@@ -59,7 +59,8 @@ create-update: Special Notes
 create-update: Full Usage Example
 =================================
 
-Here is a full configuration demonstrating all possible configuration options. See comments for further explanation:
+Here is a full configuration demonstrating all possible configuration options. See the inline comments for further
+explanation:
 
     <plugin>
         <groupId>com.bazaarvoice.maven.plugins</groupId>
@@ -144,7 +145,7 @@ Here is a full configuration demonstrating all possible configuration options. S
 rebuild-repo: Usage Examples
 ============================
 
-NOTE: This goal does not require a project to run; *you can run it from any directory*.
+This goal can be run from any directory; it does not need a Maven project/POM to run.
 
 A simple example:
 
@@ -192,8 +193,10 @@ execution.
 Relocating a Repository
 =======================
 
-Use "s3repo.targetRepositoryPath" to specify a target repository that differs from the source repository. Note that this will
-add only those items in the source repo that do not already exist in the target repo.
+To relocate an existing S3 YUM repository, use the "s3repo.targetRepositoryPath" property to specify a target
+repository that differs from the source repository. Note that this will add only those items in the source repo
+that do not already exist in the target repo. Also note that you can do a "dry run" using the
+"s3repo.doNotUpload" property.
 
     $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:rebuild-repo \
         -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
@@ -207,10 +210,10 @@ Listing a Repository
         -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
         -Ds3repo.accessKey=${ACCESS} -Ds3repo.secretKey=${SECRET}
 
-This will produce a comma-delimted list that can edited to be used in the "s3repo.excludes" configuration property when
+This will produce a comma-delimited list that can modified and used in the "s3repo.excludes" configuration property when
 executing the rebuild-repo goal.
 
-A verbose example:
+Here is a verbose example:
 
     $ mvn com.bazaarvoice.maven.plugins:s3repo-maven-plugin:${VERSION}:list-repo \
         -Ds3repo.repositoryPath=s3://some-artifacts/yum-repo \
@@ -218,9 +221,9 @@ A verbose example:
         -Ds3repo.filterByMetadata=false \
         -Ds3repo.accessKey=${ACCESS} -Ds3repo.secretKey=${SECRET}
 
-"s3repo.filterByMetadata" is set to true by default. By making it false, all of the files in the repo will be listed,
+The "s3repo.filterByMetadata" property is true by default. By setting it to false, all of the files in the repo will be listed,
 not just those listed in the YUM metadata (typically this is not what is desired.)
 
 Wishlist
 ========
-* upload RPM to repository without needing a Maven project/POM (i.e., in the Mojo, requiresProject = false)
+* upload arbitrary RPM to repository without needing a Maven project/POM (i.e., in the Mojo, requiresProject = false)
