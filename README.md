@@ -6,9 +6,6 @@ rebuild, relocate, and list S3-based YUM repositories.
 
 The latest version is **2.0.0**.
 
-This is a Maven plugin that supports adding arbitrary dependencies, typically RPM dependencies, to a YUM repository hosted in S3.
-Additional goals allow you to rebuild, relocate, and list S3-based YUM repositories.
-
 Note that using S3 as a YUM repository is possible via the YUM plugin
 [yum-s3-plugin](https://github.com/jbraeuer/yum-s3-plugin).
 
