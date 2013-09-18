@@ -10,12 +10,6 @@ final class ListContext {
     private S3RepositoryPath s3RepositoryPath;
     private LocalYumRepoFacade localYumRepo;
 
-    /** todo
-     *      - path/to/awesome-artifact-1.4-SNAPSHOT1.noarch.rpm
-     *      - path/to/awesome-artifact-1.4-SNAPSHOT-2.noarch.rpm
-     *      - path/to/awesome-artifact-1.4-SNAPSHOT-blah.noarch.rpm
-     */
-
     public AmazonS3 getS3Session() {
         return s3Session;
     }

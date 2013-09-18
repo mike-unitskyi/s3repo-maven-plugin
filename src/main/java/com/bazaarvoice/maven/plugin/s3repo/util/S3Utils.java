@@ -17,7 +17,7 @@ public final class S3Utils {
         return bucketKeyToRepoRelativePath(s3RepositoryPath, summary.getKey());
     }
 
-    public static String bucketKeyToRepoRelativePath(S3RepositoryPath s3RepositoryPath, String bucketKey) {
+    private static String bucketKeyToRepoRelativePath(S3RepositoryPath s3RepositoryPath, String bucketKey) {
         return s3RepositoryPath.hasBucketRelativeFolder()
             ? bucketKey.replaceFirst("^\\Q" + s3RepositoryPath.getBucketRelativeFolder() + "/\\E", "")
             : bucketKey;

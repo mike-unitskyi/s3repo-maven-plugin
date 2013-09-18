@@ -241,16 +241,6 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         }
     }
 
-    private File determineLocalYumMetadataFile(CreateOrUpdateContext context) {
-        S3RepositoryPath s3RepositoryPath = context.getS3RepositoryPath();
-        String repodataFilePath = WellKnowns.YUM_REPODATA_FOLDERNAME + "/" + WellKnowns.YUM_REPOMETADATA_FILENAME;
-        if (s3RepositoryPath.hasBucketRelativeFolder()) {
-            // *prepend* repository folder path to filepath
-            repodataFilePath = s3RepositoryPath.getBucketRelativeFolder() + "/" + repodataFilePath;
-        }
-        return new File(stagingDirectory, repodataFilePath);
-    }
-
     private void copyArtifactItems(CreateOrUpdateContext context, List<ArtifactItem> resolvedArtifactItems) throws MojoExecutionException {
         for (ArtifactItem artifactItem : resolvedArtifactItems) {
             try {
