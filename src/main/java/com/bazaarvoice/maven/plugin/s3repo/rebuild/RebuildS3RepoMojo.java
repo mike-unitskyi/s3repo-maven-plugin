@@ -497,7 +497,11 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         if (StringUtils.isEmpty(digitsOnly)) {
             return -1;
         }
-        return Integer.parseInt(digitsOnly);
+        try {
+            return Integer.parseInt(digitsOnly);
+        } catch (Exception e) {
+            return -1;
+        }
     }
 
     private static S3RepositoryPath parseS3RepositoryPath(String path) throws MojoExecutionException {
