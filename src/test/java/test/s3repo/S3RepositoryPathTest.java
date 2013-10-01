@@ -11,18 +11,22 @@ import static org.testng.Assert.fail;
 @Test
 public class S3RepositoryPathTest {
 
-    public void testS3RepositoryPath() {
-        S3RepositoryPath path; // reusable
-
-        path = S3RepositoryPath.parse("/Bucket");
+    public void testBucketOnly() {
+        final S3RepositoryPath path = S3RepositoryPath.parse("/Bucket");
         assertEquals(path.getBucketName(), "Bucket");
         assertEquals(path.getBucketRelativeFolder(), "");
         assertFalse(path.hasBucketRelativeFolder());
+    }
 
-        path = S3RepositoryPath.parse("/Bucket/subfolder");
+    public void testSubfolder() {
+        final S3RepositoryPath path = S3RepositoryPath.parse("/Bucket/subfolder");
         assertEquals(path.getBucketName(), "Bucket");
         assertEquals(path.getBucketRelativeFolder(), "subfolder");
         assertTrue(path.hasBucketRelativeFolder());
+    }
+
+    public void testWithProtocol() {
+        S3RepositoryPath path; // reusable
 
         path = S3RepositoryPath.parse("s3://Bucket");
         assertEquals(path.getBucketName(), "Bucket");
@@ -43,7 +47,9 @@ public class S3RepositoryPathTest {
         assertEquals(path.getBucketName(), "Bucket");
         assertEquals(path.getBucketRelativeFolder(), "sub/folder");
         assertTrue(path.hasBucketRelativeFolder());
+    }
 
+    public void testFailures() {
         assertFailsToParse("s3:/Bucket");
         assertFailsToParse("subfolder");
         assertFailsToParse("Bucket/subfolder");
