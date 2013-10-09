@@ -17,7 +17,9 @@
     <description>Create or update an S3 YUM repository.</description>
 
     <scm>
+        <url>https://github.com/bazaarvoice/s3repo-maven-plugin</url>
         <connection>scm:git:git@github.com:bazaarvoice/s3repo-maven-plugin.git</connection>
+        <developerConnection>scm:git:git@github.com:bazaarvoice/s3repo-maven-plugin.git</developerConnection>
     </scm>
 
     <properties>
