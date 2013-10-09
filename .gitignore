@@ -6,3 +6,6 @@
 target/
 
 *.log
+
+pom.xml.releaseBackup
+release.properties
