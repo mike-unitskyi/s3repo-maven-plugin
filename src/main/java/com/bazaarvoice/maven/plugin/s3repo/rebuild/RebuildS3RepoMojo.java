@@ -43,7 +43,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private File stagingDirectory;
 
     /**
-     * The s3 path to the root of the target repository.
+     * The s3 path to the root of the source (and possibly target) repository.
      * These are all valid values:
      *      "s3://Bucket1/Repo1"
      *      "/Bucket/Repo1"
@@ -52,7 +52,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     private String s3RepositoryPath;
 
     /**
-     * Optional. Otherwise the {@link #s3RepositoryPath} is used.
+     * Optional target repository path. Otherwise the {@link #s3RepositoryPath} is used.
      */
     @Parameter (property = "s3repo.targetRepositoryPath", required = false)
     private String s3TargetRepositoryPath;
@@ -305,7 +305,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                         SnapshotDescription toDelete = snapshotsRepresentingSameInstallable.get(i);
                         getLog().info("Deleting old snapshot '" + toDelete.getBucketKey() + "', locally...");
                         // delete object locally so createrepo step doesn't pick it up
-                        deleteBucketRelativePath(toDelete.getBucketKey());
+                        deleteRepoRelativePath(S3Utils.toRepoRelativePath(toDelete.getBucketKey(), toDelete.getS3RepositoryPath()));
                         // only queue it for deletion if exists in the target repository.
                         if (toDelete.existsInRepository(context.getS3TargetRepositoryPath())) {
                             // we'll also delete the object from s3 but only after we upload the repository metadata
@@ -321,7 +321,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
     }
 
     private void renameSnapshotLocalFileByStrippingSnapshotNumerics(RebuildContext context, SnapshotDescription snapshotDescription) throws MojoExecutionException {
-        final File latestSnapshotFile = new File(stagingDirectory, /*bucket-relative path*/snapshotDescription.getBucketKey());
+        final File latestSnapshotFile = new File(stagingDirectory,
+            S3Utils.toRepoRelativePath(snapshotDescription.getBucketKey(), snapshotDescription.getS3RepositoryPath()));
         final File renameTo = new File(latestSnapshotFile.getParent(), tryStripSnapshotNumerics(latestSnapshotFile.getName()));
         getLog().info("Renaming " + ExtraIOUtils.relativize(stagingDirectory, latestSnapshotFile)
                 + " => " + renameTo.getName() /*note can't relativize non-existent file*/);
@@ -334,8 +335,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         }
     }
 
-    private void deleteBucketRelativePath(String bucketRelativePath) throws MojoExecutionException {
-        final File toDelete = new File(stagingDirectory, bucketRelativePath);
+    private void deleteRepoRelativePath(String repoRelativePath) throws MojoExecutionException {
+        final File toDelete = new File(stagingDirectory, repoRelativePath);
         if (!toDelete.isFile()) {
             throw new MojoExecutionException("Cannot delete non-existent file: " + toDelete);
         }
@@ -437,7 +438,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 continue;
             }
             // for every item in the repository, add it to our snapshot metadata if it's a snapshot artifact
-            maybeAddSnapshotMetadata(summary, context);
+            maybeAddSnapshotMetadata(summary, context, s3RepositoryPath);
             if (new File(stagingDirectory, asRepoRelativePath).isFile()) {
                 // file exists (likely due to doNotPreClean = true); do not download
                 getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; already downloaded/exists)");
@@ -472,7 +473,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         return summary.getKey().startsWith(metadataFilePrefix);
     }
 
-    private void maybeAddSnapshotMetadata(S3ObjectSummary summary, RebuildContext context) {
+    private void maybeAddSnapshotMetadata(S3ObjectSummary summary, RebuildContext context, S3RepositoryPath s3RepositoryPath) {
         final int lastSlashIndex = summary.getKey().lastIndexOf("/");
         // determine the path to the file (excluding the filename iteself); this path may be empty, otherwise it contains
         // a "/" suffix
@@ -487,7 +488,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final int ordinal = toOrdinal(fileName.substring(snapshotIndex));
             getLog().debug("Making note of snapshot '" + summary.getKey() + "'; using prefix = " + bucketKeyPrefix);
             // ASSERT: bucketKeyPrefix is *full path* of bucket key up to and excluding the SNAPSHOT string and anything after it.
-            context.addSnapshotDescription(new SnapshotDescription(summary.getBucketName(), bucketKeyPrefix, summary.getKey(), ordinal));
+            context.addSnapshotDescription(
+                new SnapshotDescription(s3RepositoryPath, summary.getBucketName(), bucketKeyPrefix, summary.getKey(), ordinal));
         }
     }
 
