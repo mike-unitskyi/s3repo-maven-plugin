@@ -179,11 +179,12 @@ A verbose example:
         -Ds3repo.removeOldSnapshots=true \
         -Ds3repo.doNotValidate=true \
         -Ds3repo.doNotUpload=true \
+        -Ds3repo.doNotPreClean=true \
         -Ds3repo.createrepo=/usr/bin/createrepo \
         -Ds3repo.excludes=repo/relative/path/my-artifact-1.0.noarch.rpm,repo/relative/path/another-artifact-5.3.noarch.rpm
 
 You can use "s3repo.doNotUpload" to rebuild the repository locally but not upload it. Use "s3repo.doNotValidate"
-to rebuild the repository but not fail if existing repo metadata is missing or corrupt.
+to rebuild the repository but not fail if existing repo metadata is missing or corrupt. Use "s3repo.doNotPreClean" in addition to "-Ds3repo.stagingDirectory" to avoid downloading artifacts that you've previously downloaded.
 
 You can use "s3repo.excludes" to specify a comma-delimted list of repo-relative paths to omit when rebuilding the repo. The
 listed paths will be removed/deleted from the target S3 bucket. A common idiom is to use the "list-repo" goal (see below)
