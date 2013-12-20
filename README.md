@@ -228,3 +228,4 @@ not just those listed in the YUM metadata (typically this is not what is desired
 Wishlist
 ========
 * upload arbitrary RPM to repository without needing a Maven project/POM (i.e., in the Mojo, requiresProject = false)
+* consider no pre-clean by default; but consider safety of this &mdash; comparing file hashes and removing local files 
