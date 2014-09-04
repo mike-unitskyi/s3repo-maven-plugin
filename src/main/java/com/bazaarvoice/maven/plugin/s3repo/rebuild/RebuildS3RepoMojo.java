@@ -40,7 +40,7 @@ import java.util.Map;
 public final class RebuildS3RepoMojo extends AbstractMojo {
 
     /** Staging directory. This is where we will recreate the relevant *bucket* files (i.e., this acts as the
-       root of the ). */
+       root of the repository). */
     @Parameter(property = "s3repo.stagingDirectory")
     private File stagingDirectory;
 
