@@ -7,5 +7,6 @@ public final class WellKnowns {
     /** Well-known names. */
     public static final String YUM_REPODATA_FOLDERNAME = "repodata";
     public static final String YUM_REPOMETADATA_FILENAME = "repomd.xml";
+    public static final String[] YUM_REPOMETADATA_FILE_TYPES = {"primary", "filelists", "other"};
 
 }
