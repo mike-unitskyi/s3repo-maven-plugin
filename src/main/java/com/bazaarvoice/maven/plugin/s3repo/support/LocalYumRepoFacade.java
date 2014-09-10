@@ -51,7 +51,7 @@ public final class LocalYumRepoFacade {
     }
 
     public boolean isRepoDataExists() {
-        // as a hueristic, answer true if repo metadata file exists
+        // as a heuristic, answer true if repo metadata file exists
         return determineRepoMetadataFile().isFile();
     }
 
@@ -76,7 +76,7 @@ public final class LocalYumRepoFacade {
 
     /** Execute the createrepo command in *update-only* mode. */
     public void updateRepo() throws MojoExecutionException {
-        internalCreateRepo(true/*no update*/);
+        internalCreateRepo(true/*update*/);
     }
 
     public File repoDataDirectory() {

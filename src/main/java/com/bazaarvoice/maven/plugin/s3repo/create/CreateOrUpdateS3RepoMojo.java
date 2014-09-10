@@ -119,12 +119,18 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         maybeEnsureExistingRepositoryMetadata(context);
         // synthesize/touch zero-size files to represent existing repository-managed files
         synthesizeExistingRepositoryFiles(context);
+        // save some stats about the original repo
+        final RepoStatistics originalRepoStatistics = RepoStatistics.createRepoStatisticsFromCreateOrUpdateContext(context);
         // resolve artifacts, copy to staging directory
         resolveAndCopyArtifactItems(context);
         // create the actual repository
         createRepo(context);
+        // save some stats about the updated repo
+        final RepoStatistics updatedRepoStatistics = RepoStatistics.createRepoStatisticsFromCreateOrUpdateContext(context);
         // pathologically delete files that we do not wish to push to target repository
         cleanupSynthesizedFiles(context);
+        // verify that the repo we created is sane
+        verifyUpdatedRepo(originalRepoStatistics, updatedRepoStatistics);
         // push/upload staging directory to repository if doNotUpload = false
         maybeUploadRepositoryUpdate(context);
     }
@@ -214,6 +220,15 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 ExtraIOUtils.touch(file);
                 context.addSynthesizedFile(file);
             }
+        }
+    }
+
+    private void verifyUpdatedRepo(final RepoStatistics originalRepoStatistics, final RepoStatistics updatedRepoStatistics) throws MojoExecutionException {
+        final int packages = updatedRepoStatistics.getNumPackages();
+        final int expectedPackages = originalRepoStatistics.getNumPackages() + artifactItems.size();
+        // sanity check to ensure that the createrepo command worked
+        if (packages != expectedPackages) {
+            throw new MojoExecutionException("Updated repo metadata has " + packages + " packages, expected " + expectedPackages);
         }
     }
 
