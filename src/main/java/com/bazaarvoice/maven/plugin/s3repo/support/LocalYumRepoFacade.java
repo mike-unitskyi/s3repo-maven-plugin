@@ -7,6 +7,8 @@ import com.bazaarvoice.maven.plugin.s3repo.util.SimpleNamespaceResolver;
 import com.bazaarvoice.maven.plugin.s3repo.util.XmlUtils;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.Closeables;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.logging.Log;
@@ -21,6 +23,9 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -55,6 +60,52 @@ public final class LocalYumRepoFacade {
         return determineRepoMetadataFile().isFile();
     }
 
+    /**
+     * Checks checksums of repo metadata files. Throws exception if files fail verification
+     */
+    public void verifyRepoDataFileChecksums() throws MojoExecutionException {
+        File repoMetadataFile = determineRepoMetadataFile();
+        if (!repoMetadataFile.isFile()) {
+            throw new IllegalStateException("File didn't exist: " + repoMetadataFile.getPath());
+        }
+        Document repoMetadata = XmlUtils.parseXmlFile(repoMetadataFile);
+
+        // check checksum of repo files
+        for (String fileType : WellKnowns.YUM_REPOMETADATA_FILE_TYPES) {
+            final File file = resolveMetadataFile(fileType, repoMetadata);
+            try {
+                final FileInputStream fileIn = new FileInputStream(file);
+                try {
+                    final Checksum checksum = resolveMetadataChecksum(fileType, repoMetadata);
+                    String digest;
+                    if ("sha".equals(checksum.checksumType) || "sha1".equals(checksum.checksumType)) {
+                        digest = DigestUtils.shaHex(fileIn);
+                    } else if ("sha256".equals(checksum.checksumType)) {
+                        digest = DigestUtils.sha256Hex(fileIn);
+                    } else if ("sha384".equals(checksum.checksumType)) {
+                        digest = DigestUtils.sha384Hex(fileIn);
+                    } else if ("sha512".equals(checksum.checksumType)) {
+                        digest = DigestUtils.sha512Hex(fileIn);
+                    } else if ("md5".equals(checksum.checksumType)) {
+                        digest = DigestUtils.md5Hex(fileIn);
+                    } else {
+                        // default to sha256
+                        digest = DigestUtils.sha256Hex(fileIn);
+                    }
+                    if (!checksum.checksumValue.equals(digest)) {
+                        throw new MojoExecutionException("Checksum does not match for " + file.getPath() + ". Expected " + checksum.checksumValue + " but got " + digest);
+                    }
+                } catch (IOException e) {
+                    throw new MojoExecutionException("Unable to calculate checksum for " + file.getPath(), e);
+                } finally {
+                    try { Closeables.close(fileIn, true);} catch (IOException e) {/*swallowed*/}
+                }
+            } catch (FileNotFoundException e) {
+                throw new MojoExecutionException("Repo file " + file.getPath() + " not found");
+            }
+        }
+    }
+
     public boolean hasFile(String repoRelativePath) {
         return new File(repositoryRoot, repoRelativePath).isFile();
     }
@@ -66,7 +117,7 @@ public final class LocalYumRepoFacade {
             throw new IllegalStateException("File didn't exist: " + repoMetadataFile.getPath());
         }
         return extractFileListFromPrimaryMetadataFile(
-            XmlUtils.parseXmlFile(resolvePrimaryMetadataFile(XmlUtils.parseXmlFile(repoMetadataFile))));
+                XmlUtils.parseXmlFile(resolvePrimaryMetadataFile(XmlUtils.parseXmlFile(repoMetadataFile))));
     }
 
     /** Execute the createrepo command. */
@@ -89,6 +140,11 @@ public final class LocalYumRepoFacade {
         commandline.setExecutable(this.createRepoCommand);
         ImmutableSet.Builder<String> args = ImmutableSet.<String>builder().addAll(createRepoArgs);
         if (updateOnly) {
+            //ensure that repo metadata is valid before updating
+            log.info("Verifying repo metadata for update");
+            verifyRepoDataFileChecksums();
+            log.info("Successfully verified repo metadata for update");
+
             // if metadata already exists, we will execute "createrepo --update --skip-stat ."
             args.add("--update", "--skip-stat");
         }
@@ -129,20 +185,35 @@ public final class LocalYumRepoFacade {
     }
 
     private File resolvePrimaryMetadataFile(Document metadata) throws MojoExecutionException {
+        return resolveMetadataFile("primary", metadata);
+    }
+
+    private File resolveMetadataFile(String type, Document metadata) throws MojoExecutionException {
         // determine root namespace for use in xpath queries
         String rootNamespaceUri = determineRootNamespaceUri(metadata);
         XPath xpath = XPathFactory.newInstance().newXPath();
         xpath.setNamespaceContext(SimpleNamespaceResolver.forPrefixAndNamespace("repo", rootNamespaceUri));
-        // primary metadata file, relative to *repository* root
-        String repoRelativePrimaryMetadataFilePath =
-            evaluateXPathString(xpath, "//repo:repomd/repo:data[@type='primary']/repo:location/@href", metadata);
-        // determine primary metadata file (typically "repodata/primary.xml.gz")
-        File primaryMetadataFile = new File(repositoryRoot, repoRelativePrimaryMetadataFilePath);
-        if (!primaryMetadataFile.isFile() || !primaryMetadataFile.getName().endsWith(".gz")) {
-            throw new MojoExecutionException("Primary metadata file, '" + primaryMetadataFile.getPath() +
-                "', does not exist or does not have .gz extension");
+        // metadata file, relative to *repository* root
+        String repoRelativeMetadataFilePath =
+                evaluateXPathString(xpath, "//repo:repomd/repo:data[@type='" + type + "']/repo:location/@href", metadata);
+        // determine metadata file (e.g., "repodata/primary.xml.gz")
+        File metadataFile = new File(repositoryRoot, repoRelativeMetadataFilePath);
+        if (!metadataFile.isFile() || !metadataFile.getName().endsWith(".gz")) {
+            throw new MojoExecutionException(type + " metadata file, '" + metadataFile.getPath() +
+                    "', does not exist or does not have .gz extension");
         }
-        return primaryMetadataFile;
+        return metadataFile;
+    }
+
+    private Checksum resolveMetadataChecksum(String type, Document metadata) throws MojoExecutionException {
+        // determine root namespace for use in xpath queries
+        String rootNamespaceUri = determineRootNamespaceUri(metadata);
+        XPath xpath = XPathFactory.newInstance().newXPath();
+        xpath.setNamespaceContext(SimpleNamespaceResolver.forPrefixAndNamespace("repo", rootNamespaceUri));
+        return new Checksum(
+                evaluateXPathString(xpath, "//repo:repomd/repo:data[@type='" + type + "']/repo:checksum/@type", metadata),
+                evaluateXPathString(xpath, "//repo:repomd/repo:data[@type='" + type + "']/repo:checksum", metadata)
+        );
     }
 
     private static Object evaluateXPathNodeSet(XPath xpath, String expression, Document document) throws MojoExecutionException {
@@ -165,4 +236,13 @@ public final class LocalYumRepoFacade {
         return metadata.getChildNodes().item(0).getNamespaceURI();
     }
 
+    private static class Checksum {
+        private final String checksumType;
+        private final String checksumValue;
+
+        private Checksum(final String checksumType, final String checksumValue) {
+            this.checksumType = checksumType;
+            this.checksumValue = checksumValue;
+        }
+    }
 }
