@@ -1,7 +1,7 @@
 package com.bazaarvoice.maven.plugin.s3repo;
 
-import org.apache.commons.lang.builder.EqualsBuilder;
-import org.apache.commons.lang.builder.HashCodeBuilder;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.eclipse.aether.util.StringUtils;
 
 import java.util.ArrayList;
