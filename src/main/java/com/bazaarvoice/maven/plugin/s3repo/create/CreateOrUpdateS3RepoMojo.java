@@ -234,7 +234,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         if (packages != expectedPackages) {
             final String msg = "Updated repo metadata has " + packages + " packages, expected " + expectedPackages;
             getLog().warn(msg);
-            if (ignoreVerificationFailures) {
+            if (!ignoreVerificationFailures) {
                 throw new MojoExecutionException(msg);
             }
         }
