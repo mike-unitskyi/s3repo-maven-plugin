@@ -68,8 +68,8 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     private boolean autoIncrementSnapshotArtifacts;
 
     /** Fail create/update if updated repo verification fails. */
-    @Parameter(property = "s3repo.failOnVerify", defaultValue = "true")
-    private boolean failOnVerify;
+    @Parameter(property = "s3repo.ignoreVerificationFailures", defaultValue = "false")
+    private boolean ignoreVerificationFailures;
 
     @Parameter(required = true)
     private List<ArtifactItem> artifactItems;
@@ -234,7 +234,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
         if (packages != expectedPackages) {
             final String msg = "Updated repo metadata has " + packages + " packages, expected " + expectedPackages;
             getLog().warn(msg);
-            if (failOnVerify) {
+            if (ignoreVerificationFailures) {
                 throw new MojoExecutionException(msg);
             }
         }
