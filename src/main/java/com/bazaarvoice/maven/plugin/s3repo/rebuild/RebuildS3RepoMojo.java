@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
 import com.bazaarvoice.maven.plugin.s3repo.WellKnowns;
@@ -18,6 +19,7 @@ import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -29,6 +31,9 @@ import org.codehaus.plexus.util.io.InputStreamFacade;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -73,6 +78,9 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
 
     @Parameter(property = "s3repo.removeOldSnapshots", defaultValue = "false")
     private boolean removeOldSnapshots;
+
+    @Parameter(property = "s3repo.removeOldRepodata", defaultValue = "false")
+    private boolean removeOldRepodata;
 
     /** Execute all steps up to and excluding the upload to the S3. This can be set to true to perform a "dryRun" execution. */
     @Parameter(property = "s3repo.doNotUpload", defaultValue = "false")
@@ -186,13 +194,35 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
         final S3RepositoryPath targetRepository = context.getS3TargetRepositoryPath();
         final String targetBucket = targetRepository.getBucketName();
         AmazonS3 s3Session = context.getS3Session();
+
+        // Determine directory to upload
         File directoryToUpload = uploadMetadataOnly
                 ? context.getLocalYumRepo().repoDataDirectory() // only the repodata directory
                 : stagingDirectory; // the entire staging directory/bucket
+
+        // Check if repository already exists
         if (!allowCreateRepository && !context.getLocalYumRepo().isRepoDataExists()) {
             throw new MojoExecutionException("refusing to create new repo: " + targetRepository +
                 " (use s3repo.allowCreateRepository = true to force)");
         }
+
+        // Build list of YUM metadata (repodata) to delete
+        List<S3ObjectSummary> s3RepoDataToDeleteList = new ArrayList<S3ObjectSummary>();
+        if (removeOldRepodata && context.sourceAndTargetRepositoryAreSame()) {
+            ListObjectsRequest listObjectsRequest = new ListObjectsRequest()
+                    .withBucketName(targetBucket)
+                    .withPrefix(targetRepository.getBucketRelativeFolder() + "/" + WellKnowns.YUM_REPODATA_FOLDERNAME + "/");
+
+            List<S3ObjectSummary> list = S3Utils.listAllObjects(s3Session, listObjectsRequest);
+            Collection<File> localMetaDataFiles = ExtraIOUtils.listAllFiles(context.getLocalYumRepo().repoDataDirectory());
+            for (S3ObjectSummary oldMetaDataObject : list) {
+                if (!containsMetaDataFile(localMetaDataFiles, oldMetaDataObject.getKey())) {
+                    s3RepoDataToDeleteList.add(oldMetaDataObject);
+                }
+            }
+        }
+
+        // Upload repository files
         for (File toUpload : ExtraIOUtils.listAllFiles(directoryToUpload)) {
             final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
             getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
@@ -200,6 +230,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
             }
         }
+
+        // Upload non-local files (e.g: moving repository)
         if (uploadMetadataOnly && !context.sourceAndTargetRepositoryAreSame()) {
             // we just uploaded metadata but there are files in the source repository
             // that don't exist in the target, so we upload those here.
@@ -215,6 +247,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 }
             }
         }
+
         // delete any excluded files remotely from the TARGET only.
         for (String repoRelativePath : context.getExcludedFilesToDeleteFromTarget()) {
             final String bucketKey = toBucketKey(targetRepository, repoRelativePath);
@@ -224,6 +257,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 context.getS3Session().deleteObject(targetBucket, bucketKey);
             }
         }
+
         // and finally, delete any remote bucket keys we wish to remove (e.g., old snaphots)...from the TARGET only.
         for (SnapshotDescription toDelete : context.getSnapshotsToDeleteRemotely()) {
             getLog().info(logPrefix + "Deleting: "
@@ -233,6 +267,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 context.getS3Session().deleteObject(targetBucket, toDelete.getBucketKey());
             }
         }
+
         // rename any snapshots...in TARGET only.
         for (RemoteSnapshotRename toRename : context.getSnapshotsToRenameRemotely()) {
             final String sourceBucketKey = toRename.getSource().getBucketKey();
@@ -245,6 +280,26 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 s3Session.deleteObject(targetBucket, sourceBucketKey);
             }
         }
+
+        // Delete old YUM metadata
+        for (S3ObjectSummary repoDataSummary : s3RepoDataToDeleteList) {
+            getLog().info(logPrefix + "Deleting metadata: " + repoDataSummary.getKey());
+            if (!doNotUpload) {
+                s3Session.deleteObject(repoDataSummary.getBucketName(), repoDataSummary.getKey());
+            }
+        }
+    }
+
+    private boolean containsMetaDataFile(Collection<File> metaDataFiles, String file) {
+        if (file == null) {
+            return false;
+        }
+        for (File metaDataFile : metaDataFiles) {
+            if (file.endsWith(metaDataFile.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String toBucketKey(S3RepositoryPath target, String repoRelativePath) {
@@ -446,27 +501,51 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             if (new File(stagingDirectory, asRepoRelativePath).isFile()) {
                 // file exists (likely due to doNotPreClean = true); do not download
                 getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => (skipping; already downloaded/exists)");
-            } else { // file doesn't yet exist
-                final S3Object object = context.getS3Session()
-                        .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
+            } else {
+                // file doesn't yet exist
                 try {
-                    File targetFile = new File(stagingDirectory, asRepoRelativePath);
-                    Files.createParentDirs(targetFile);
-                    getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => " + targetFile);
-                    FileUtils.copyStreamToFile(new InputStreamFacade() {
-                        @Override
-                        public InputStream getInputStream()
-                            throws IOException {
-                            return object.getObjectContent();
-                        }
-                    }, targetFile);
-                    if (isTargetRepo) {
-                        context.addFileFromTargetRepo(targetFile);
+                    downloadFile(context, s3RepositoryPath, asRepoRelativePath, isTargetRepo, summary);
+                } catch (SocketTimeoutException e) {
+                    // Retry due to socket timeout
+                    getLog().warn("Retrying Download due to socket timeout: " + s3RepositoryPath + "/" + asRepoRelativePath);
+                    try {
+                        downloadFile(context, s3RepositoryPath, asRepoRelativePath, isTargetRepo, summary);
+                    } catch (IOException ex) {
+                        throw new MojoExecutionException("failed to download object from s3: " + summary.getKey(), ex);
                     }
                 } catch (IOException e) {
                     throw new MojoExecutionException("failed to download object from s3: " + summary.getKey(), e);
                 }
             }
+        }
+    }
+
+    private void downloadFile(RebuildContext context, S3RepositoryPath s3RepositoryPath, String asRepoRelativePath, boolean isTargetRepo, S3ObjectSummary summary) throws IOException {
+        final S3Object object = context.getS3Session()
+                .getObject(new GetObjectRequest(s3RepositoryPath.getBucketName(), summary.getKey()));
+
+        File targetFile = new File(stagingDirectory, asRepoRelativePath);
+        Files.createParentDirs(targetFile);
+
+        getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => " + targetFile);
+
+        RequestConfig config = RequestConfig.custom()
+                .setSocketTimeout(WellKnowns.SOCKET_TIMEOUT)
+                .setConnectTimeout(WellKnowns.SOCKET_TIMEOUT)
+                .build();
+
+        final S3ObjectInputStream objectContent = object.getObjectContent();
+        objectContent.getHttpRequest().setConfig(config);
+
+        FileUtils.copyStreamToFile(new InputStreamFacade() {
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return objectContent;
+            }
+        }, targetFile);
+
+        if (isTargetRepo) {
+            context.addFileFromTargetRepo(targetFile);
         }
     }
 
@@ -479,7 +558,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
 
     private void maybeAddSnapshotMetadata(S3ObjectSummary summary, RebuildContext context, S3RepositoryPath s3RepositoryPath) {
         final int lastSlashIndex = summary.getKey().lastIndexOf("/");
-        // determine the path to the file (excluding the filename iteself); this path may be empty, otherwise it contains
+        // determine the path to the file (excluding the filename itself); this path may be empty, otherwise it contains
         // a "/" suffix
         final String path = lastSlashIndex > 0 ? summary.getKey().substring(0, lastSlashIndex + 1) : "";
         // determine the file name (without any directory path elements)
