@@ -9,4 +9,6 @@ public final class WellKnowns {
     public static final String YUM_REPOMETADATA_FILENAME = "repomd.xml";
     public static final String[] YUM_REPOMETADATA_FILE_TYPES = {"primary", "filelists", "other"};
 
+    public static final int SOCKET_TIMEOUT = 30 * 1000;
+
 }

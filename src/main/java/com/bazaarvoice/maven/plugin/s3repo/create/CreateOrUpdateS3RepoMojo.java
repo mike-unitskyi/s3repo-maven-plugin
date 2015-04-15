@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
 import com.bazaarvoice.maven.plugin.s3repo.WellKnowns;
@@ -16,6 +17,7 @@ import com.bazaarvoice.maven.plugin.s3repo.util.ExtraFileUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.ExtraIOUtils;
 import com.bazaarvoice.maven.plugin.s3repo.util.S3Utils;
 import com.google.common.io.Files;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -370,10 +372,19 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
                 File targetFile = new File(stagingDirectory, asRepoRelativePath);
                 getLog().info("Downloading: " + s3RepositoryPath + "/" + asRepoRelativePath + " => " + targetFile);
                 Files.createParentDirs(targetFile);
+
+                RequestConfig config = RequestConfig.custom()
+                        .setSocketTimeout(WellKnowns.SOCKET_TIMEOUT)
+                        .setConnectTimeout(WellKnowns.SOCKET_TIMEOUT)
+                        .build();
+
+                final S3ObjectInputStream objectContent = object.getObjectContent();
+                objectContent.getHttpRequest().setConfig(config);
+
                 FileUtils.copyStreamToFile(new InputStreamFacade() {
                     @Override
                     public InputStream getInputStream() throws IOException {
-                        return object.getObjectContent();
+                        return objectContent;
                     }
                 }, targetFile);
             } catch (IOException e) {

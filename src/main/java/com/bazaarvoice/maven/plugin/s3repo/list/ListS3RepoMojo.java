@@ -6,6 +6,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.bazaarvoice.maven.plugin.s3repo.S3RepositoryPath;
 import com.bazaarvoice.maven.plugin.s3repo.WellKnowns;
@@ -16,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.io.Files;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -161,11 +163,19 @@ public final class ListS3RepoMojo extends AbstractMojo {
                 File targetFile =
                     new File(stagingDirectory, /*assume object key is bucket-relative path to filename with extension*/summary.getKey());
                 Files.createParentDirs(targetFile);
+
+                RequestConfig config = RequestConfig.custom()
+                        .setSocketTimeout(WellKnowns.SOCKET_TIMEOUT)
+                        .setConnectTimeout(WellKnowns.SOCKET_TIMEOUT)
+                        .build();
+
+                final S3ObjectInputStream objectContent = object.getObjectContent();
+                objectContent.getHttpRequest().setConfig(config);
+
                 FileUtils.copyStreamToFile(new InputStreamFacade() {
                     @Override
-                    public InputStream getInputStream()
-                        throws IOException {
-                        return object.getObjectContent();
+                    public InputStream getInputStream() throws IOException {
+                        return objectContent;
                     }
                 }, targetFile);
             } catch (IOException e) {

@@ -4,7 +4,7 @@ s3repo-maven-plugin
 This Maven plugin supports releasing and deploying to YUM repositories hosted in S3. Additional goals allow you to
 rebuild, relocate, and list S3-based YUM repositories.
 
-The latest version is **3.3**.
+The latest version is **3.5**.
 
 Note that using S3 as a YUM repository is possible via the YUM plugin
 [yum-s3-plugin](https://github.com/jbraeuer/yum-s3-plugin).
@@ -164,7 +164,8 @@ If you want to clean up old snapshots, use:
         -Ds3repo.repositoryPath=s3://BucketName/yum-repo \
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
-        -Ds3repo.removeOldSnapshots=true
+        -Ds3repo.removeOldSnapshots=true \
+        -Ds3repo.removeOldRepodata=true
 
 If you want to use a non-temp staging directory:
 
@@ -181,6 +182,7 @@ A verbose example:
         -Ds3repo.accessKey=ABC \
         -Ds3repo.secretKey=DEF \
         -Ds3repo.removeOldSnapshots=true \
+        -Ds3repo.removeOldRepodata=true \
         -Ds3repo.doNotValidate=true \
         -Ds3repo.doNotUpload=true \
         -Ds3repo.doNotPreClean=true \
@@ -195,6 +197,8 @@ You can use "s3repo.excludes" to specify a comma-delimted list of repo-relative 
 listed paths will be removed/deleted from the target S3 bucket. A common idiom is to use the "list-repo" goal (see below)
 to produce a comma-delimited list of ALL artifacts and then edit that list to desired exclusions to use in the rebuild-repo
 execution.
+
+Use "removeOldRepodata" to cleanup old repodata which accumulates over time.
 
 Relocating a Repository
 =======================
