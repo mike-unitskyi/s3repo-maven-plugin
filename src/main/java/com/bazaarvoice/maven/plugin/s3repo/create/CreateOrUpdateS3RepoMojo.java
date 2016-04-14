@@ -4,6 +4,7 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -48,7 +49,7 @@ import java.util.Set;
 @Mojo(name = "create-update", defaultPhase = LifecyclePhase.DEPLOY)
 public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
 
-    @Component
+    @Parameter(defaultValue = "${project}", readonly = true)
     private MavenProject project;
 
     @Component
@@ -159,7 +160,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
             String bucketKey = localFileToTargetS3BucketKey(toUpload, targetRepository);
             getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
             if (!doNotUpload) {
-                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
             }
         }
     }
