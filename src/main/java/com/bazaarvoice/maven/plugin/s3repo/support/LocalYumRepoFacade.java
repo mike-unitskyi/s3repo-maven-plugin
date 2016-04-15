@@ -79,7 +79,7 @@ public final class LocalYumRepoFacade {
                     final Checksum checksum = resolveMetadataChecksum(fileType, repoMetadata);
                     String digest;
                     if ("sha".equals(checksum.checksumType) || "sha1".equals(checksum.checksumType)) {
-                        digest = DigestUtils.shaHex(fileIn);
+                        digest = DigestUtils.sha1Hex(fileIn);
                     } else if ("sha256".equals(checksum.checksumType)) {
                         digest = DigestUtils.sha256Hex(fileIn);
                     } else if ("sha384".equals(checksum.checksumType)) {
@@ -146,7 +146,7 @@ public final class LocalYumRepoFacade {
             log.info("Successfully verified repo metadata for update");
 
             // if metadata already exists, we will execute "createrepo --update --skip-stat ."
-            args.add("--update", "--skip-stat");
+            args.add("--update", "--skip-stat", "--simple-md-filenames");
         }
         for (String arg : args.build()) {
             commandline.createArg().setValue(arg);

@@ -4,6 +4,8 @@ import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.CopyObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -227,7 +229,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
             final String bucketKey = localFileToTargetS3BucketKey(toUpload, context);
             getLog().info(logPrefix + "Uploading: " + toUpload.getName() + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
             if (!doNotUpload) {
-                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+                s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
             }
         }
 
@@ -242,7 +244,7 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                     getLog().info(logPrefix + "Uploading: " + toUpload.getName()
                         + " => s3://" + targetRepository.getBucketName() + "/" + bucketKey + "...");
                     if (!doNotUpload) {
-                        s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload));
+                        s3Session.putObject(new PutObjectRequest(targetBucket, bucketKey, toUpload).withCannedAcl(CannedAccessControlList.BucketOwnerFullControl));
                     }
                 }
             }
@@ -276,7 +278,8 @@ public final class RebuildS3RepoMojo extends AbstractMojo {
                 + "s3://" + targetRepository.getBucketName() + "/" + sourceBucketKey
                 + " => s3://" + targetRepository.getBucketName() + "/" + targetBucketKey);
             if (!doNotUpload) {
-                s3Session.copyObject(targetBucket, sourceBucketKey, targetBucket, targetBucketKey);
+                s3Session.copyObject(new CopyObjectRequest(targetBucket, sourceBucketKey, targetBucket, targetBucketKey)
+                        .withCannedAccessControlList(CannedAccessControlList.BucketOwnerFullControl));
                 s3Session.deleteObject(targetBucket, sourceBucketKey);
             }
         }
