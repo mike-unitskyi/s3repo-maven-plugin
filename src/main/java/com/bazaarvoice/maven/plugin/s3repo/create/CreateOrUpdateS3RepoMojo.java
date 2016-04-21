@@ -150,7 +150,7 @@ public class CreateOrUpdateS3RepoMojo extends AbstractMojo {
     private void maybeUploadRepositoryUpdate(CreateOrUpdateContext context) throws MojoExecutionException {
         String logPrefix = "";
         if (doNotUpload) {
-            getLog().info("Per configuration, we will NOTE perform any remote operations on the S3 repository.");
+            getLog().info("Per configuration, we will NOT perform any remote operations on the S3 repository.");
             logPrefix = "SKIPPING: ";
         }
         final S3RepositoryPath targetRepository = context.getS3RepositoryPath();
